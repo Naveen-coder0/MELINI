@@ -19,7 +19,7 @@ const SeasonalCollection = () => {
             </span>
             <h2 className="mt-4 font-display text-3xl font-medium md:text-4xl lg:text-5xl">
               Spring Summer<br />
-              <span className="text-gradient">2024 Collection</span>
+              <span className="text-gradient">2025 Collection</span>
             </h2>
             <p className="mt-6 text-lg text-muted-foreground">
               Embrace the warmth with our latest collection featuring breathable 

@@ -163,7 +163,7 @@ const Footer = () => {
           </div>
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
-            <span>+91 98765 43210</span>
+            <span>+91 9988324455</span>
           </div>
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
@@ -175,7 +175,7 @@ const Footer = () => {
       {/* Bottom Bar */}
       <div className="border-t">
         <div className="container-custom flex flex-col items-center justify-between gap-4 py-6 text-sm text-muted-foreground md:flex-row">
-          <p>© 2024 Melini India. All rights reserved.</p>
+          <p>© 2025 Melini India. All rights reserved.</p>
           <div className="flex gap-6">
             <Link to="#" className="hover:text-foreground">Privacy Policy</Link>
             <Link to="#" className="hover:text-foreground">Terms of Service</Link>

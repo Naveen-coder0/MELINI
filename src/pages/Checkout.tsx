@@ -116,7 +116,7 @@ const Checkout = () => {
               </div>
               <div>
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" placeholder="+91 98765 43210" className="mt-1" />
+                <Input id="phone" type="tel" placeholder="+91 9988324455" className="mt-1" />
               </div>
             </div>
 

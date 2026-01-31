@@ -131,7 +131,7 @@ const HeroSection = () => {
               >
                 <Sparkles className="h-4 w-4 text-primary" />
               </motion.span>
-              <span className="text-sm font-medium text-primary">New Collection 2024</span>
+              <span className="text-sm font-medium text-primary">New Collection 2025</span>
             </motion.div>
             
             {/* Main Heading */}
