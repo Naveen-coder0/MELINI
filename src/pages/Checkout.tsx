@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, CreditCard, Truck, CheckCircle } from 'lucide-react';
+import { ChevronLeft, CreditCard, CheckCircle } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,29 +10,158 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
   const { toast } = useToast();
+
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const shipping = totalPrice > 2000 ? 0 : 199;
+  const shipping = totalPrice > 0 ? 0 : 199;
   const total = totalPrice + shipping;
 
+  // ✅ WhatsApp message
+  const sendOrderToWhatsapp = (paymentId: string) => {
+    const firstName = (document.getElementById('firstName') as HTMLInputElement)?.value;
+    const lastName = (document.getElementById('lastName') as HTMLInputElement)?.value;
+    const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
+
+    const address = (document.getElementById('address') as HTMLInputElement)?.value;
+    const city = (document.getElementById('city') as HTMLInputElement)?.value;
+    const state = (document.getElementById('state') as HTMLInputElement)?.value;
+    const pincode = (document.getElementById('pincode') as HTMLInputElement)?.value;
+
+    const productsText = items
+      .map(
+        (item, i) =>
+          `${i + 1}. ${item.name}
+Size: ${item.size}
+Quantity: ${item.quantity}
+Image: ${item.image}`
+      )
+      .join('\n\n');
+
+    const message = `
+🛍️ New Order – MELINI
+
+Name: ${firstName} ${lastName}
+Phone: ${phone}
+
+Products:
+${productsText}
+
+Address:
+${address}, ${city}, ${state} - ${pincode}
+
+Total: ₹${total}
+
+Payment ID:
+${paymentId}
+`;
+
+    const shopWhatsappNumber = '919467269782';
+
+    const url =
+      'https://wa.me/' +
+      shopWhatsappNumber +
+      '?text=' +
+      encodeURIComponent(message);
+
+    window.location.href = url;
+  };
+
+  // ✅ Razorpay payment
   const handleSubmitOrder = async () => {
-    setIsSubmitting(true);
-    
-    // Simulate order submission
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setStep('success');
-    clearCart();
-    
-    toast({
-      title: 'Order placed successfully!',
-      description: 'You will receive a confirmation email shortly.',
-    });
+    try {
+      setIsSubmitting(true);
+
+      const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: total })
+      });
+
+      const order = await res.json();
+
+      if (!window.Razorpay) {
+        alert('Razorpay SDK not loaded');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const firstName = (document.getElementById('firstName') as HTMLInputElement)?.value;
+      const lastName = (document.getElementById('lastName') as HTMLInputElement)?.value;
+      const email = (document.getElementById('email') as HTMLInputElement)?.value;
+      const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY,
+        amount: order.amount,
+        currency: 'INR',
+        name: 'MELINI',
+        description: 'MELINI Order Payment',
+        order_id: order.id,
+
+        prefill: {
+          name: `${firstName} ${lastName}`,
+          email,
+          contact: phone
+        },
+
+        handler: (response: any) => {
+          sendOrderToWhatsapp(response.razorpay_payment_id);
+
+          setStep('success');
+          clearCart();
+
+          toast({
+            title: 'Payment successful!',
+            description: `Payment ID: ${response.razorpay_payment_id}`
+          });
+        },
+
+        // ✅ ADDED (popup close / cancel)
+        modal: {
+          ondismiss: () => {
+            setIsSubmitting(false);
+
+            toast({
+              title: 'Payment cancelled ⚠️',
+              description: 'You closed the payment window.'
+            });
+          }
+        },
+
+        theme: { color: '#000000' }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+
+      // ✅ Payment failed message
+      rzp.on('payment.failed', (res: any) => {
+        setIsSubmitting(false);
+        toast({
+          title: 'Payment failed ❌',
+          description: res?.error?.description || 'Please try again'
+        });
+      });
+
+    } catch (error) {
+      console.error(error);
+      setIsSubmitting(false);
+      toast({
+        title: 'Error',
+        description: 'Unable to start payment'
+      });
+    }
   };
 
   if (items.length === 0 && step !== 'success') {
@@ -57,7 +186,7 @@ const Checkout = () => {
           </motion.div>
           <h1 className="mt-6 font-display text-3xl font-medium">Order Confirmed!</h1>
           <p className="mt-4 text-muted-foreground">
-            Thank you for your order. We'll send you a confirmation email with order details.
+            Thank you for your order.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Order #MELINI{Date.now().toString().slice(-8)}
@@ -73,6 +202,7 @@ const Checkout = () => {
   return (
     <div className="pt-24">
       <div className="container-custom py-12">
+
         <Button variant="ghost" asChild className="mb-6">
           <Link to="/cart">
             <ChevronLeft className="mr-2 h-4 w-4" />
@@ -81,7 +211,8 @@ const Checkout = () => {
         </Button>
 
         <div className="grid gap-12 lg:grid-cols-2">
-          {/* Checkout Form */}
+
+          {/* LEFT */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -92,60 +223,62 @@ const Checkout = () => {
               <p className="mt-2 text-muted-foreground">Complete your order</p>
             </div>
 
-            {/* Contact Info */}
+            {/* Contact */}
             <div className="space-y-4 rounded-xl border bg-card p-6">
               <h2 className="flex items-center gap-2 font-semibold">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  1
-                </span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">1</span>
                 Contact Information
               </h2>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="John" className="mt-1" />
+                  <Input id="firstName" className="mt-1" />
                 </div>
                 <div>
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" placeholder="Doe" className="mt-1" />
+                  <Input id="lastName" className="mt-1" />
                 </div>
               </div>
+
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="john@example.com" className="mt-1" />
+                <Input id="email" type="email" className="mt-1" />
               </div>
+
               <div>
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" placeholder="+91 9988324455" className="mt-1" />
+                <Input id="phone" type="tel" className="mt-1" />
               </div>
             </div>
 
-            {/* Shipping Address */}
+            {/* Address */}
             <div className="space-y-4 rounded-xl border bg-card p-6">
               <h2 className="flex items-center gap-2 font-semibold">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  2
-                </span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">2</span>
                 Shipping Address
               </h2>
+
               <div>
                 <Label htmlFor="address">Street Address</Label>
-                <Input id="address" placeholder="123 Main Street" className="mt-1" />
+                <Input id="address" className="mt-1" />
               </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="city">City</Label>
-                  <Input id="city" placeholder="Mumbai" className="mt-1" />
+                  <Input id="city" className="mt-1" />
                 </div>
                 <div>
                   <Label htmlFor="state">State</Label>
-                  <Input id="state" placeholder="Maharashtra" className="mt-1" />
+                  <Input id="state" className="mt-1" />
                 </div>
               </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="pincode">PIN Code</Label>
-                  <Input id="pincode" placeholder="400001" className="mt-1" />
+                  <Input id="pincode" className="mt-1" />
                 </div>
                 <div>
                   <Label htmlFor="country">Country</Label>
@@ -154,81 +287,63 @@ const Checkout = () => {
               </div>
             </div>
 
-            {/* Shipping Method */}
+            {/* Shipping */}
             <div className="space-y-4 rounded-xl border bg-card p-6">
               <h2 className="flex items-center gap-2 font-semibold">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  3
-                </span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">3</span>
                 Shipping Method
               </h2>
+
               <RadioGroup defaultValue="standard" className="space-y-3">
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div className="flex items-center gap-3">
                     <RadioGroupItem value="standard" id="standard" />
-                    <Label htmlFor="standard" className="cursor-pointer">
+                    <Label htmlFor="standard">
                       <div className="font-medium">Standard Delivery</div>
                       <div className="text-sm text-muted-foreground">5-7 business days</div>
                     </Label>
                   </div>
                   <span>{shipping === 0 ? 'Free' : `₹${shipping}`}</span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value="express" id="express" />
-                    <Label htmlFor="express" className="cursor-pointer">
-                      <div className="font-medium">Express Delivery</div>
-                      <div className="text-sm text-muted-foreground">2-3 business days</div>
-                    </Label>
-                  </div>
-                  <span>₹299</span>
-                </div>
               </RadioGroup>
             </div>
 
-            {/* Payment (Placeholder) */}
+            {/* Payment */}
             <div className="space-y-4 rounded-xl border bg-card p-6">
               <h2 className="flex items-center gap-2 font-semibold">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  4
-                </span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">4</span>
                 Payment Method
               </h2>
-              <div className="flex items-center gap-4 rounded-lg border border-dashed p-6 text-center">
+
+              <div className="flex items-center gap-4 rounded-lg border border-dashed p-6">
                 <CreditCard className="h-8 w-8 text-muted-foreground" />
-                <div className="text-left">
-                  <p className="font-medium">Payment integration coming soon</p>
+                <div>
+                  <p className="font-medium">Razorpay Secure Payment</p>
                   <p className="text-sm text-muted-foreground">
-                    Razorpay will be integrated for secure payments
+                    Pay using UPI, Cards, Netbanking & Wallets
                   </p>
                 </div>
               </div>
             </div>
+
           </motion.div>
 
-          {/* Order Summary */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
+          {/* RIGHT */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
             <div className="sticky top-28 space-y-6 rounded-xl border bg-card p-6">
+
               <h2 className="font-display text-xl font-medium">Order Summary</h2>
 
-              {/* Items */}
               <div className="max-h-64 space-y-4 overflow-y-auto">
                 {items.map((item) => (
                   <div key={`${item.id}-${item.size}`} className="flex gap-3">
-                    <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                      />
+                    <div className="h-16 w-12 overflow-hidden rounded-lg bg-secondary">
+                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.size} • {item.color} • Qty: {item.quantity}
+                        {item.size} • Qty: {item.quantity}
                       </p>
                     </div>
                     <span className="text-sm font-medium">
@@ -240,7 +355,6 @@ const Checkout = () => {
 
               <Separator />
 
-              {/* Totals */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
@@ -249,10 +363,6 @@ const Checkout = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
                   <span>{shipping === 0 ? 'Free' : `₹${shipping}`}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>Included</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg font-semibold">
@@ -269,11 +379,9 @@ const Checkout = () => {
                 {isSubmitting ? 'Processing...' : 'Place Order'}
               </Button>
 
-              <p className="text-center text-xs text-muted-foreground">
-                By placing this order, you agree to our Terms of Service and Privacy Policy
-              </p>
             </div>
           </motion.div>
+
         </div>
       </div>
     </div>

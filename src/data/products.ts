@@ -133,7 +133,7 @@ const generateProducts = (): Product[] => {
       id: `summer-${index + 1}`,
       name: item.name,
       slug: item.name.toLowerCase().replace(/\s+/g, '-'),
-      price: 2499 + (index * 500),
+      price: 2 + (index * 500),
       originalPrice: index % 3 === 0 ? 3499 + (index * 500) : undefined,
       description: `Experience ultimate comfort with our ${item.name}. Crafted with ${item.material} for breathability and style. Perfect for the Indian summer, this piece combines traditional craftsmanship with modern design sensibilities. Each garment is carefully constructed to ensure lasting quality and timeless appeal.`,
       shortDescription: `Lightweight ${item.material} perfect for warm days`,

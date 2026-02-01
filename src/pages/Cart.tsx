@@ -29,7 +29,7 @@ const Cart = () => {
     );
   }
 
-  const shipping = totalPrice > 2000 ? 0 : 199;
+  const shipping = totalPrice > 0 ? 0 : 199;
   const total = totalPrice + shipping;
 
   return (
