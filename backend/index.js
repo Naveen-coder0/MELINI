@@ -10,6 +10,7 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
+
 const JWT_SECRET = process.env.JWT_SECRET || 'melini-admin-secret';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@melini.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
@@ -85,27 +86,39 @@ const parseNumber = (value) => {
   return Number.isNaN(number) ? undefined : number;
 };
 
+/* -------------------- ADMIN AUTH -------------------- */
 
-const createAdminToken = () => jwt.sign({ role: 'admin', email: ADMIN_EMAIL }, JWT_SECRET, { expiresIn: '12h' });
+const createAdminToken = () =>
+  jwt.sign(
+    { role: 'admin', email: ADMIN_EMAIL },
+    JWT_SECRET,
+    { expiresIn: '12h' }
+  );
 
 const requireAdminAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
+
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Missing admin token' });
   }
 
   const token = authHeader.slice(7);
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+
     if (decoded?.role !== 'admin') {
       return res.status(403).json({ error: 'Invalid admin token' });
     }
+
     req.admin = decoded;
-    return next();
+    next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
+
+/* -------------------- RAZORPAY -------------------- */
 
 app.post('/create-order', async (req, res) => {
   try {
@@ -127,6 +140,8 @@ app.post('/create-order', async (req, res) => {
     return res.status(500).json({ error: 'Failed to create order' });
   }
 });
+
+/* -------------------- PUBLIC PRODUCTS -------------------- */
 
 app.get('/api/products', async (req, res) => {
   try {
@@ -204,9 +219,11 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/products/:slug', async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
+
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
+
     return res.json(product);
   } catch (error) {
     console.error(error);
@@ -214,6 +231,7 @@ app.get('/api/products/:slug', async (req, res) => {
   }
 });
 
+/* -------------------- ADMIN AUTH API -------------------- */
 
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body || {};
@@ -223,6 +241,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   const isValid = email === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+
   if (!isValid) {
     return res.status(401).json({ error: 'Invalid admin credentials' });
   }
@@ -235,10 +254,14 @@ app.get('/api/auth/me', requireAdminAuth, (req, res) => {
   return res.json({ admin: { email: req.admin.email } });
 });
 
+/* -------------------- ADMIN PRODUCTS -------------------- */
+
 app.post('/api/admin/products', requireAdminAuth, async (req, res) => {
   try {
     const payload = { ...req.body };
-    payload.slug = payload.slug ? slugify(payload.slug) : slugify(payload.name);
+    payload.slug = payload.slug
+      ? slugify(payload.slug)
+      : slugify(payload.name);
 
     const product = await Product.create(payload);
     return res.status(201).json(product);
@@ -254,12 +277,15 @@ app.post('/api/admin/products', requireAdminAuth, async (req, res) => {
 app.put('/api/admin/products/:id', requireAdminAuth, async (req, res) => {
   try {
     const payload = { ...req.body };
-    payload.slug = payload.slug ? slugify(payload.slug) : slugify(payload.name);
+    payload.slug = payload.slug
+      ? slugify(payload.slug)
+      : slugify(payload.name);
 
-    const product = await Product.findByIdAndUpdate(req.params.id, payload, {
-      new: true,
-      runValidators: true,
-    });
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      payload,
+      { new: true, runValidators: true }
+    );
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
@@ -278,15 +304,19 @@ app.put('/api/admin/products/:id', requireAdminAuth, async (req, res) => {
 app.delete('/api/admin/products/:id', requireAdminAuth, async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
+
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
+
     return res.json({ success: true });
   } catch (error) {
     console.error(error);
     return res.status(400).json({ error: 'Failed to delete product' });
   }
 });
+
+/* -------------------- START -------------------- */
 
 app.get('/', (_, res) => {
   res.send('MELINI backend is running');
