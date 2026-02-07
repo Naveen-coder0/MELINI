@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search as SearchIcon, X } from 'lucide-react';
-import { products } from '@/data/products';
+import { useProducts } from '@/contexts/ProductContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/shop/ProductCard';
@@ -10,6 +10,7 @@ import ProductCard from '@/components/shop/ProductCard';
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
+  const { products } = useProducts();
 
   const searchResults = useMemo(() => {
     if (!query.trim()) return [];
@@ -22,7 +23,7 @@ const Search = () => {
         product.category.toLowerCase().includes(lowerQuery) ||
         product.material.toLowerCase().includes(lowerQuery)
     );
-  }, [query]);
+  }, [products, query]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

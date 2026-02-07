@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
+import { ProductProvider } from '@/contexts/ProductContext';
 import Layout from "@/components/layout/Layout";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
@@ -15,6 +16,7 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Search from "./pages/Search";
 import NotFound from "./pages/NotFound";
+import Admin from "./pages/Admin";
 import ScrollToTop from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -22,6 +24,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <ProductProvider>
       <CartProvider>
         <Toaster />
         <Sonner />
@@ -40,12 +43,14 @@ const App = () => (
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
         </BrowserRouter>
 
       </CartProvider>
+    </ProductProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
