@@ -199,15 +199,7 @@ Implemented using Tailwind CSS responsive utilities and custom mobile hook.
 - `vitest.config.ts` - Vitest testing configuration
 - `components.json` - shadcn/ui components configuration
 
-## 📝 Environment Setup
 
-Create a `.env.local` file for environment variables (if needed):
-```env
-VITE_API_BASE_URL=http://localhost:5000
-MONGODB_URI=mongodb://127.0.0.1:27017/melini
-RAZORPAY_KEY_ID=your_key_id
-RAZORPAY_KEY_SECRET=your_key_secret
-```
 
 
 ### Backend (MongoDB)
@@ -221,9 +213,7 @@ npm run start
 The backend now exposes DB-powered product APIs:
 - `GET /api/products`
 - `GET /api/products/:slug`
-- `POST /api/admin/products`
-- `PUT /api/admin/products/:id`
-- `DELETE /api/admin/products/:id`
+
 
 ## 🚀 Deployment
 
