@@ -1,12 +1,14 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { getProductsByCategory, categories } from '@/data/products';
+import { categories } from '@/data/products';
+import { useProducts } from '@/contexts/ProductContext';
 import ProductCard from '@/components/shop/ProductCard';
 import { Button } from '@/components/ui/button';
 
 const Category = () => {
   const { category } = useParams();
   const categoryData = categories.find(c => c.slug === category);
+  const { getProductsByCategory } = useProducts();
   const products = getProductsByCategory(category || '');
 
   if (!categoryData) {

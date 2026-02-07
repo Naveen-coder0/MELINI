@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { getFeaturedProducts } from '@/data/products';
+import { useProducts } from '@/contexts/ProductContext';
 import ProductCard from '@/components/shop/ProductCard';
 import { Button } from '@/components/ui/button';
 
 const FeaturedProducts = () => {
+  const { getFeaturedProducts } = useProducts();
   const featuredProducts = getFeaturedProducts();
 
   return (

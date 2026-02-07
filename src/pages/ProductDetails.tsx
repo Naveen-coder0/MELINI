@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Share2, Truck, RotateCcw, Shield, ChevronRight, Minus, Plus, Check } from 'lucide-react';
-import { getProductBySlug, products, Product } from '@/data/products';
+import { Product } from '@/data/products';
+import { useProducts } from '@/contexts/ProductContext';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,7 @@ import ProductCard from '@/components/shop/ProductCard';
 
 const ProductDetails = () => {
   const { slug } = useParams();
+  const { getProductBySlug, products } = useProducts();
   const product = getProductBySlug(slug || '');
   const { addItem } = useCart();
   const { toast } = useToast();
