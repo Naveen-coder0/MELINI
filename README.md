@@ -203,8 +203,34 @@ Implemented using Tailwind CSS responsive utilities and custom mobile hook.
 
 Create a `.env.local` file for environment variables (if needed):
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_API_BASE_URL=http://localhost:5000
+MONGODB_URI=mongodb://127.0.0.1:27017/melini
+JWT_SECRET=change_this_secret
+ADMIN_EMAIL=admin@melini.com
+ADMIN_PASSWORD=admin123
+RAZORPAY_KEY_ID=your_key_id
+RAZORPAY_KEY_SECRET=your_key_secret
 ```
+
+
+### Backend (MongoDB)
+
+```bash
+cd backend
+npm install
+npm run start
+```
+
+The backend now exposes DB-powered product APIs:
+- `GET /api/products`
+- `GET /api/products/:slug`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/admin/products` *(admin token required)*
+- `PUT /api/admin/products/:id` *(admin token required)*
+- `DELETE /api/admin/products/:id` *(admin token required)*
+
+Admin login UI route: `http://localhost:4173/admin/login`
 
 ## 🚀 Deployment
 

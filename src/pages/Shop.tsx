@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, Grid3X3, LayoutList } from 'lucide-react';
-import { products, Product } from '@/data/products';
+import { Product } from '@/data/products';
+import { useProducts } from '@/contexts/ProductContext';
 import ProductCard from '@/components/shop/ProductCard';
 import ProductFilters from '@/components/shop/ProductFilters';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ type SortOption = 'newest' | 'price-low' | 'price-high' | 'best-selling';
 
 const Shop = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { products } = useProducts();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   

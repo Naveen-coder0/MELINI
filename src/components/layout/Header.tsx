@@ -14,6 +14,7 @@ const navLinks = [
   { name: 'Winter Wear', path: '/category/winter' },
   { name: 'About', path: '/about' },
   { name: 'Contact', path: '/contact' },
+  { name: 'Admin', path: '/admin' },
 ];
 
 const Header = () => {
