@@ -7,11 +7,11 @@ import mongoose from "mongoose";
 dotenv.config();
 
 const app = express();
+const PORT = Number(process.env.PORT) || 5000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
-
-const MONGODB_URI = process.env.MONGODB_URI;
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -22,31 +22,22 @@ const razorpay = new Razorpay({
 
 const ProductSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, unique: true, trim: true },
-    price: { type: Number, required: true, min: 0 },
-    originalPrice: { type: Number, min: 0 },
-    description: { type: String, required: true },
-    shortDescription: { type: String, required: true },
-    category: {
-      type: String,
-      required: true,
-      enum: ["summer", "semi-winter", "winter"],
-    },
-    images: [{ type: String, required: true }],
-    sizes: [{ type: String, required: true }],
-    colors: [
-      {
-        name: { type: String, required: true },
-        value: { type: String, required: true },
-      },
-    ],
-    inStock: { type: Boolean, default: true },
-    isNew: { type: Boolean, default: false },
-    isBestSeller: { type: Boolean, default: false },
-    material: { type: String, required: true },
-    careInstructions: [{ type: String, required: true }],
-    features: [{ type: String, required: true }],
+    name: String,
+    slug: { type: String, unique: true },
+    price: Number,
+    originalPrice: Number,
+    description: String,
+    shortDescription: String,
+    category: String,
+    images: [String],
+    sizes: [String],
+    colors: [{ name: String, value: String }],
+    inStock: Boolean,
+    isNew: Boolean,
+    isBestSeller: Boolean,
+    material: String,
+    careInstructions: [String],
+    features: [String],
   },
   { timestamps: true }
 );
@@ -61,46 +52,25 @@ ProductSchema.set("toJSON", {
 });
 
 const Product =
-  mongoose.models.Product || mongoose.model("Product", ProductSchema);
+  mongoose.models.Product ||
+  mongoose.model("Product", ProductSchema);
 
 /* -------------------- HELPERS -------------------- */
 
-const slugify = (value = "") =>
-  value
+const slugify = (v = "") =>
+  v
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
-const parseBool = (value) => {
-  if (value === undefined) return undefined;
-  if (value === true || value === "true") return true;
-  if (value === false || value === "false") return false;
-  return undefined;
-};
-
-const parseNumber = (value) => {
-  if (value === undefined || value === null || value === "") return undefined;
-  const number = Number(value);
-  return Number.isNaN(number) ? undefined : number;
-};
-
 /* -------------------- ROUTES -------------------- */
-/*
- IMPORTANT
- This app is mounted by Vercel at /api
- So DO NOT write /api here
-*/
 
 /* payment */
 app.post("/create-order", async (req, res) => {
   try {
     const { amount } = req.body;
-
-    if (!amount) {
-      return res.status(400).json({ error: "Amount is required" });
-    }
 
     const order = await razorpay.orders.create({
       amount: Number(amount) * 100,
@@ -108,201 +78,82 @@ app.post("/create-order", async (req, res) => {
       receipt: `melini_${Date.now()}`,
     });
 
-    return res.json(order);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to create order" });
+    res.json(order);
+  } catch (e) {
+    res.status(500).json({ error: "order failed" });
   }
 });
 
 /* products */
 
 app.get("/products", async (req, res) => {
-  try {
-    const {
-      category,
-      search,
-      minPrice,
-      maxPrice,
-      inStock,
-      sort = "newest",
-      page = "1",
-      limit = "100",
-    } = req.query;
+  const items = await Product.find().sort({ createdAt: -1 });
+  const total = await Product.countDocuments();
 
-    const filter = {};
-
-    if (category && category !== "all") {
-      filter.category = category;
-    }
-
-    const inStockBool = parseBool(inStock);
-    if (typeof inStockBool === "boolean") {
-      filter.inStock = inStockBool;
-    }
-
-    const min = parseNumber(minPrice);
-    const max = parseNumber(maxPrice);
-
-    if (min !== undefined || max !== undefined) {
-      filter.price = {};
-      if (min !== undefined) filter.price.$gte = min;
-      if (max !== undefined) filter.price.$lte = max;
-    }
-
-    if (search) {
-      const regex = new RegExp(String(search), "i");
-      filter.$or = [
-        { name: regex },
-        { description: regex },
-        { shortDescription: regex },
-        { material: regex },
-      ];
-    }
-
-    const sortMap = {
-      newest: { createdAt: -1 },
-      "price-low": { price: 1 },
-      "price-high": { price: -1 },
-      "best-selling": { isBestSeller: -1, createdAt: -1 },
-    };
-
-    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
-    const pageSize = Math.max(
-      1,
-      Math.min(100, parseInt(String(limit), 10) || 20)
-    );
-
-    const [items, total] = await Promise.all([
-      Product.find(filter)
-        .sort(sortMap[sort] || sortMap.newest)
-        .skip((pageNumber - 1) * pageSize)
-        .limit(pageSize),
-      Product.countDocuments(filter),
-    ]);
-
-    return res.json({
-      items,
-      total,
-      page: pageNumber,
-      limit: pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Failed to fetch products" });
-  }
+  res.json({
+    items,
+    total,
+  });
 });
 
 app.get("/products/:slug", async (req, res) => {
-  try {
-    const product = await Product.findOne({ slug: req.params.slug });
-
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    return res.json(product);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Failed to fetch product" });
-  }
+  const p = await Product.findOne({ slug: req.params.slug });
+  if (!p) return res.status(404).json({ error: "not found" });
+  res.json(p);
 });
 
 /* admin */
 
 app.post("/admin/products", async (req, res) => {
-  try {
-    const payload = { ...req.body };
-    payload.slug = payload.slug
-      ? slugify(payload.slug)
-      : slugify(payload.name);
+  const payload = { ...req.body };
+  payload.slug = slugify(payload.name);
 
-    const product = await Product.create(payload);
-
-    return res.status(201).json(product);
-  } catch (error) {
-    console.error(error);
-
-    if (error?.code === 11000) {
-      return res
-        .status(409)
-        .json({ error: "Product slug already exists" });
-    }
-
-    return res.status(400).json({ error: "Failed to create product" });
-  }
+  const p = await Product.create(payload);
+  res.status(201).json(p);
 });
 
 app.put("/admin/products/:id", async (req, res) => {
-  try {
-    const payload = { ...req.body };
-    payload.slug = payload.slug
-      ? slugify(payload.slug)
-      : slugify(payload.name);
+  const payload = { ...req.body };
+  payload.slug = slugify(payload.name);
 
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      payload,
-      { new: true, runValidators: true }
-    );
+  const p = await Product.findByIdAndUpdate(
+    req.params.id,
+    payload,
+    { new: true }
+  );
 
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    return res.json(product);
-  } catch (error) {
-    console.error(error);
-
-    if (error?.code === 11000) {
-      return res
-        .status(409)
-        .json({ error: "Product slug already exists" });
-    }
-
-    return res.status(400).json({ error: "Failed to update product" });
-  }
+  res.json(p);
 });
 
 app.delete("/admin/products/:id", async (req, res) => {
-  try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    console.error(error);
-    return res.status(400).json({ error: "Failed to delete product" });
-  }
+  await Product.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
 });
 
 /* health */
 
 app.get("/", (_, res) => {
-  res.send("MELINI backend is running");
+  res.send("MELINI backend running");
 });
 
-/* -------------------- DB CONNECT (Vercel safe) -------------------- */
+/* -------------------- DB -------------------- */
 
-let isConnected = false;
+let connected = false;
 
 async function connectDB() {
-  if (isConnected) return;
-
-  if (!MONGODB_URI) {
-    throw new Error("MONGODB_URI is missing in environment variables");
-  }
-
-  await mongoose.connect(MONGODB_URI);
-  isConnected = true;
-
-  console.log("MongoDB connected");
+  if (connected) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+  connected = true;
 }
 
-connectDB().catch(console.error);
+if (process.env.VERCEL) {
+  connectDB();
+} else {
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log("local backend running");
+    });
+  });
+}
 
 export default app;
