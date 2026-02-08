@@ -60,7 +60,8 @@ ProductSchema.set("toJSON", {
   },
 });
 
-const Product = mongoose.models.Product || mongoose.model("Product", ProductSchema);
+const Product =
+  mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
 /* -------------------- HELPERS -------------------- */
 
@@ -87,10 +88,12 @@ const parseNumber = (value) => {
 
 /* -------------------- ROUTES -------------------- */
 /* IMPORTANT:
-   NO /api prefix here – Vercel already mounts this app at /api
+   No /api prefix here.
+   Vercel mounts this file at /api automatically.
 */
 
 /* payment */
+
 app.post("/create-order", async (req, res) => {
   try {
     const { amount } = req.body;
@@ -140,6 +143,7 @@ app.get("/products", async (req, res) => {
 
     const min = parseNumber(minPrice);
     const max = parseNumber(maxPrice);
+
     if (min !== undefined || max !== undefined) {
       filter.price = {};
       if (min !== undefined) filter.price.$gte = min;
@@ -185,6 +189,7 @@ app.get("/products", async (req, res) => {
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
+    acknowledging:
     console.error(error);
     return res.status(500).json({ error: "Failed to fetch products" });
   }
@@ -268,12 +273,13 @@ app.get("/", (_, res) => {
   res.send("MELINI backend is running");
 });
 
-/* -------------------- START / EXPORT -------------------- */
+/* -------------------- DB + EXPORT -------------------- */
 
 let isConnected = false;
 
 async function connectDB() {
   if (isConnected) return;
+
   if (!MONGODB_URI) {
     throw new Error("MONGODB_URI is missing in environment variables");
   }
