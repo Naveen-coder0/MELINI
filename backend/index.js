@@ -7,7 +7,6 @@ import mongoose from "mongoose";
 dotenv.config();
 
 const app = express();
-const PORT = Number(process.env.PORT) || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(cors());
@@ -63,7 +62,7 @@ ProductSchema.set("toJSON", {
 const Product =
   mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
-/* -------------------- HELPERS -------------------- */
+/* -------------------- helpers -------------------- */
 
 const slugify = (value = "") =>
   value
@@ -87,13 +86,7 @@ const parseNumber = (value) => {
 };
 
 /* -------------------- ROUTES -------------------- */
-/*
-IMPORTANT
-Do NOT put /api here.
-Vercel already mounts this app at /api
-*/
-
-/* payment */
+/* ⚠️ NO /api prefix here */
 
 app.post("/create-order", async (req, res) => {
   try {
@@ -109,10 +102,10 @@ app.post("/create-order", async (req, res) => {
       receipt: `melini_${Date.now()}`,
     });
 
-    return res.json(order);
+    res.json(order);
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "Failed to create order" });
+    res.status(500).json({ error: "Failed to create order" });
   }
 });
 
@@ -133,14 +126,10 @@ app.get("/products", async (req, res) => {
 
     const filter = {};
 
-    if (category && category !== "all") {
-      filter.category = category;
-    }
+    if (category && category !== "all") filter.category = category;
 
     const inStockBool = parseBool(inStock);
-    if (typeof inStockBool === "boolean") {
-      filter.inStock = inStockBool;
-    }
+    if (typeof inStockBool === "boolean") filter.inStock = inStockBool;
 
     const min = parseNumber(minPrice);
     const max = parseNumber(maxPrice);
@@ -168,11 +157,8 @@ app.get("/products", async (req, res) => {
       "best-selling": { isBestSeller: -1, createdAt: -1 },
     };
 
-    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
-    const pageSize = Math.max(
-      1,
-      Math.min(100, parseInt(String(limit), 10) || 20)
-    );
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const pageSize = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
 
     const [items, total] = await Promise.all([
       Product.find(filter)
@@ -182,29 +168,27 @@ app.get("/products", async (req, res) => {
       Product.countDocuments(filter),
     ]);
 
-    return res.json({
+    res.json({
       items,
       total,
       page: pageNumber,
       limit: pageSize,
       totalPages: Math.ceil(total / pageSize),
     });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Failed to fetch products" });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to fetch products" });
   }
 });
 
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-    return res.json(product);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Failed to fetch product" });
+    if (!product) return res.status(404).json({ error: "Product not found" });
+    res.json(product);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to fetch product" });
   }
 });
 
@@ -218,13 +202,12 @@ app.post("/admin/products", async (req, res) => {
       : slugify(payload.name);
 
     const product = await Product.create(payload);
-    return res.status(201).json(product);
-  } catch (error) {
-    console.error(error);
-    if (error?.code === 11000) {
+    res.status(201).json(product);
+  } catch (e) {
+    console.error(e);
+    if (e?.code === 11000)
       return res.status(409).json({ error: "Product slug already exists" });
-    }
-    return res.status(400).json({ error: "Failed to create product" });
+    res.status(400).json({ error: "Failed to create product" });
   }
 });
 
@@ -235,77 +218,56 @@ app.put("/admin/products/:id", async (req, res) => {
       ? slugify(payload.slug)
       : slugify(payload.name);
 
-    const product = await Product.findByIdAndUpdate(req.params.id, payload, {
-      new: true,
-      runValidators: true,
-    });
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      payload,
+      { new: true, runValidators: true }
+    );
 
-    if (!product) {
+    if (!product)
       return res.status(404).json({ error: "Product not found" });
-    }
 
-    return res.json(product);
-  } catch (error) {
-    console.error(error);
-    if (error?.code === 11000) {
+    res.json(product);
+  } catch (e) {
+    console.error(e);
+    if (e?.code === 11000)
       return res.status(409).json({ error: "Product slug already exists" });
-    }
-    return res.status(400).json({ error: "Failed to update product" });
+    res.status(400).json({ error: "Failed to update product" });
   }
 });
 
 app.delete("/admin/products/:id", async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) {
+    if (!product)
       return res.status(404).json({ error: "Product not found" });
-    }
-    return res.json({ success: true });
-  } catch (error) {
-    console.error(error);
-    return res.status(400).json({ error: "Failed to delete product" });
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: "Failed to delete product" });
   }
 });
 
-/* health */
-
 app.get("/", (_, res) => {
-  res.send("MELINI backend is running");
+  res.send("MELINI backend running");
 });
 
-/* -------------------- START / EXPORT -------------------- */
+/* -------------------- DB -------------------- */
 
 let isConnected = false;
 
 async function connectDB() {
   if (isConnected) return;
 
-  if (!MONGODB_URI) {
-    throw new Error("MONGODB_URI is missing in environment variables");
-  }
+  if (!MONGODB_URI)
+    throw new Error("MONGODB_URI is missing");
 
   await mongoose.connect(MONGODB_URI);
   isConnected = true;
-  console.log("MongoDB connected");
+  console.log("Mongo connected");
 }
 
-/*
-On Vercel → DO NOT listen
-Locally → listen
-*/
-
-if (process.env.VERCEL) {
-  connectDB().catch(console.error);
-} else {
-  connectDB()
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log(`Backend running on http://localhost:${PORT}`);
-      });
-    })
-    .catch((e) => {
-      console.error("Failed to start backend:", e.message);
-    });
-}
+connectDB().catch(console.error);
 
 export default app;
