@@ -87,9 +87,10 @@ const parseNumber = (value) => {
 };
 
 /* -------------------- ROUTES -------------------- */
-/* IMPORTANT:
-   No /api prefix here.
-   Vercel mounts this file at /api automatically.
+/*
+IMPORTANT
+Do NOT put /api here.
+Vercel already mounts this app at /api
 */
 
 /* payment */
@@ -189,7 +190,6 @@ app.get("/products", async (req, res) => {
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    acknowledging:
     console.error(error);
     return res.status(500).json({ error: "Failed to fetch products" });
   }
@@ -273,7 +273,7 @@ app.get("/", (_, res) => {
   res.send("MELINI backend is running");
 });
 
-/* -------------------- DB + EXPORT -------------------- */
+/* -------------------- START / EXPORT -------------------- */
 
 let isConnected = false;
 
@@ -288,6 +288,11 @@ async function connectDB() {
   isConnected = true;
   console.log("MongoDB connected");
 }
+
+/*
+On Vercel → DO NOT listen
+Locally → listen
+*/
 
 if (process.env.VERCEL) {
   connectDB().catch(console.error);
