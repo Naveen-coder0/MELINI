@@ -7,10 +7,11 @@ import mongoose from "mongoose";
 dotenv.config();
 
 const app = express();
-const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+
+const MONGODB_URI = process.env.MONGODB_URI;
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -62,7 +63,7 @@ ProductSchema.set("toJSON", {
 const Product =
   mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
-/* -------------------- helpers -------------------- */
+/* -------------------- HELPERS -------------------- */
 
 const slugify = (value = "") =>
   value
@@ -86,8 +87,13 @@ const parseNumber = (value) => {
 };
 
 /* -------------------- ROUTES -------------------- */
-/* ⚠️ NO /api prefix here */
+/*
+ IMPORTANT
+ This app is mounted by Vercel at /api
+ So DO NOT write /api here
+*/
 
+/* payment */
 app.post("/create-order", async (req, res) => {
   try {
     const { amount } = req.body;
@@ -97,15 +103,15 @@ app.post("/create-order", async (req, res) => {
     }
 
     const order = await razorpay.orders.create({
-      amount: amount * 100,
+      amount: Number(amount) * 100,
       currency: "INR",
       receipt: `melini_${Date.now()}`,
     });
 
-    res.json(order);
+    return res.json(order);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create order" });
+    return res.status(500).json({ error: "Failed to create order" });
   }
 });
 
@@ -126,10 +132,14 @@ app.get("/products", async (req, res) => {
 
     const filter = {};
 
-    if (category && category !== "all") filter.category = category;
+    if (category && category !== "all") {
+      filter.category = category;
+    }
 
     const inStockBool = parseBool(inStock);
-    if (typeof inStockBool === "boolean") filter.inStock = inStockBool;
+    if (typeof inStockBool === "boolean") {
+      filter.inStock = inStockBool;
+    }
 
     const min = parseNumber(minPrice);
     const max = parseNumber(maxPrice);
@@ -157,8 +167,11 @@ app.get("/products", async (req, res) => {
       "best-selling": { isBestSeller: -1, createdAt: -1 },
     };
 
-    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
-    const pageSize = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
+    const pageSize = Math.max(
+      1,
+      Math.min(100, parseInt(String(limit), 10) || 20)
+    );
 
     const [items, total] = await Promise.all([
       Product.find(filter)
@@ -168,27 +181,31 @@ app.get("/products", async (req, res) => {
       Product.countDocuments(filter),
     ]);
 
-    res.json({
+    return res.json({
       items,
       total,
       page: pageNumber,
       limit: pageSize,
       totalPages: Math.ceil(total / pageSize),
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Failed to fetch products" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to fetch products" });
   }
 });
 
 app.get("/products/:slug", async (req, res) => {
   try {
     const product = await Product.findOne({ slug: req.params.slug });
-    if (!product) return res.status(404).json({ error: "Product not found" });
-    res.json(product);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Failed to fetch product" });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    return res.json(product);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to fetch product" });
   }
 });
 
@@ -202,12 +219,18 @@ app.post("/admin/products", async (req, res) => {
       : slugify(payload.name);
 
     const product = await Product.create(payload);
-    res.status(201).json(product);
-  } catch (e) {
-    console.error(e);
-    if (e?.code === 11000)
-      return res.status(409).json({ error: "Product slug already exists" });
-    res.status(400).json({ error: "Failed to create product" });
+
+    return res.status(201).json(product);
+  } catch (error) {
+    console.error(error);
+
+    if (error?.code === 11000) {
+      return res
+        .status(409)
+        .json({ error: "Product slug already exists" });
+    }
+
+    return res.status(400).json({ error: "Failed to create product" });
   }
 });
 
@@ -224,48 +247,60 @@ app.put("/admin/products/:id", async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!product)
+    if (!product) {
       return res.status(404).json({ error: "Product not found" });
+    }
 
-    res.json(product);
-  } catch (e) {
-    console.error(e);
-    if (e?.code === 11000)
-      return res.status(409).json({ error: "Product slug already exists" });
-    res.status(400).json({ error: "Failed to update product" });
+    return res.json(product);
+  } catch (error) {
+    console.error(error);
+
+    if (error?.code === 11000) {
+      return res
+        .status(409)
+        .json({ error: "Product slug already exists" });
+    }
+
+    return res.status(400).json({ error: "Failed to update product" });
   }
 });
 
 app.delete("/admin/products/:id", async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product)
-      return res.status(404).json({ error: "Product not found" });
 
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(400).json({ error: "Failed to delete product" });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(400).json({ error: "Failed to delete product" });
   }
 });
 
+/* health */
+
 app.get("/", (_, res) => {
-  res.send("MELINI backend running");
+  res.send("MELINI backend is running");
 });
 
-/* -------------------- DB -------------------- */
+/* -------------------- DB CONNECT (Vercel safe) -------------------- */
 
 let isConnected = false;
 
 async function connectDB() {
   if (isConnected) return;
 
-  if (!MONGODB_URI)
-    throw new Error("MONGODB_URI is missing");
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is missing in environment variables");
+  }
 
   await mongoose.connect(MONGODB_URI);
   isConnected = true;
-  console.log("Mongo connected");
+
+  console.log("MongoDB connected");
 }
 
 connectDB().catch(console.error);
