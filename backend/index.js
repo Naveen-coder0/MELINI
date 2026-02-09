@@ -141,14 +141,16 @@ app.get("/", (_, res) => {
 let connected = false;
 
 async function connectDB() {
-  if (connected) return;
-  await mongoose.connect(process.env.MONGODB_URI);
+  if (connected || mongoose.connection.readyState === 1) {
+    connected = true;
+    return;
+  }
+
+  await mongoose.connect(MONGODB_URI);
   connected = true;
 }
 
-if (process.env.VERCEL) {
-  connectDB();
-} else {
+if (!process.env.VERCEL) {
   connectDB().then(() => {
     app.listen(PORT, () => {
       console.log("local backend running");
@@ -156,4 +158,5 @@ if (process.env.VERCEL) {
   });
 }
 
+export { connectDB };
 export default app;
