@@ -60,100 +60,118 @@ const slugify = (v = "") =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
-const asyncRoute = (handler) => (req, res, next) => {
-  Promise.resolve(handler(req, res, next)).catch(next);
-};
+const asyncRoute =
+  (handler: any) =>
+  (req: any, res: any, next: any) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
 
 /* -------------------- ROUTES -------------------- */
 
 /* payment */
-app.post("/create-order", asyncRoute(async (req, res) => {
-  const { amount } = req.body;
+app.post(
+  "/create-order",
+  asyncRoute(async (req, res) => {
+    const { amount } = req.body;
 
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-    return res.status(500).json({ error: "razorpay config missing" });
-  }
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ error: "razorpay config missing" });
+    }
 
-  const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-  });
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
 
-  const order = await razorpay.orders.create({
-    amount: Number(amount) * 100,
-    currency: "INR",
-    receipt: `melini_${Date.now()}`,
-  });
+    const order = await razorpay.orders.create({
+      amount: Number(amount) * 100,
+      currency: "INR",
+      receipt: `melini_${Date.now()}`,
+    });
 
-  res.json(order);
-}));
+    res.json(order);
+  })
+);
 
 /* products */
 
-app.get("/products", asyncRoute(async (req, res) => {
-  const items = await Product.find().sort({ createdAt: -1 });
-  const total = await Product.countDocuments();
+app.get(
+  "/products",
+  asyncRoute(async (_req, res) => {
+    const items = await Product.find().sort({ createdAt: -1 });
+    const total = await Product.countDocuments();
 
-  res.json({
-    items,
-    total,
-  });
-}));
+    res.json({
+      items,
+      total,
+    });
+  })
+);
 
-app.get("/products/:slug", asyncRoute(async (req, res) => {
-  const p = await Product.findOne({ slug: req.params.slug });
-  if (!p) return res.status(404).json({ error: "not found" });
-  res.json(p);
-}));
+app.get(
+  "/products/:slug",
+  asyncRoute(async (req, res) => {
+    const p = await Product.findOne({ slug: req.params.slug });
+    if (!p) return res.status(404).json({ error: "not found" });
+    res.json(p);
+  })
+);
 
 /* admin */
 
-app.post("/admin/products", asyncRoute(async (req, res) => {
-  const payload = { ...req.body };
-  payload.slug = slugify(payload.name);
+app.post(
+  "/admin/products",
+  asyncRoute(async (req, res) => {
+    const payload = { ...req.body };
+    payload.slug = slugify(payload.name);
 
-  const p = await Product.create(payload);
-  res.status(201).json(p);
-}));
+    const p = await Product.create(payload);
+    res.status(201).json(p);
+  })
+);
 
-app.put("/admin/products/:id", asyncRoute(async (req, res) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(404).json({ error: "not found" });
-  }
+app.put(
+  "/admin/products/:id",
+  asyncRoute(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: "not found" });
+    }
 
-  const payload = { ...req.body };
-  payload.slug = slugify(payload.name);
+    const payload = { ...req.body };
+    payload.slug = slugify(payload.name);
 
-  const p = await Product.findByIdAndUpdate(
-    req.params.id,
-    payload,
-    { new: true }
-  );
+    const p = await Product.findByIdAndUpdate(req.params.id, payload, {
+      new: true,
+    });
 
-  if (!p) return res.status(404).json({ error: "not found" });
+    if (!p) return res.status(404).json({ error: "not found" });
 
-  res.json(p);
-}));
+    res.json(p);
+  })
+);
 
-app.delete("/admin/products/:id", asyncRoute(async (req, res) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(404).json({ error: "not found" });
-  }
+app.delete(
+  "/admin/products/:id",
+  asyncRoute(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: "not found" });
+    }
 
-  const deleted = await Product.findByIdAndDelete(req.params.id);
+    const deleted = await Product.findByIdAndDelete(req.params.id);
 
-  if (!deleted) return res.status(404).json({ error: "not found" });
+    if (!deleted) return res.status(404).json({ error: "not found" });
 
-  res.json({ success: true });
-}));
+    res.json({ success: true });
+  })
+);
 
 /* health */
 
-app.get("/", (_, res) => {
+app.get("/", (_req, res) => {
   res.send("MELINI backend running");
 });
 
-app.use((err, _req, res, _next) => {
+app.use((err: any, _req: any, res: any, _next: any) => {
   console.error(err);
   res.status(500).json({ error: err?.message || "internal server error" });
 });
