@@ -13,11 +13,6 @@ const MONGODB_URI = process.env.MONGODB_URI;
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
-
 /* -------------------- SCHEMA -------------------- */
 
 const ProductSchema = new mongoose.Schema(
@@ -65,12 +60,28 @@ const slugify = (v = "") =>
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 
+const asyncRoute =
+  (handler: any) =>
+  (req: any, res: any, next: any) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+
 /* -------------------- ROUTES -------------------- */
 
 /* payment */
-app.post("/create-order", async (req, res) => {
-  try {
+app.post(
+  "/create-order",
+  asyncRoute(async (req, res) => {
     const { amount } = req.body;
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ error: "razorpay config missing" });
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
 
     const order = await razorpay.orders.create({
       amount: Number(amount) * 100,
@@ -79,61 +90,90 @@ app.post("/create-order", async (req, res) => {
     });
 
     res.json(order);
-  } catch (e) {
-    res.status(500).json({ error: "order failed" });
-  }
-});
+  })
+);
 
 /* products */
 
-app.get("/products", async (req, res) => {
-  const items = await Product.find().sort({ createdAt: -1 });
-  const total = await Product.countDocuments();
+app.get(
+  "/products",
+  asyncRoute(async (_req, res) => {
+    const items = await Product.find().sort({ createdAt: -1 });
+    const total = await Product.countDocuments();
 
-  res.json({
-    items,
-    total,
-  });
-});
+    res.json({
+      items,
+      total,
+    });
+  })
+);
 
-app.get("/products/:slug", async (req, res) => {
-  const p = await Product.findOne({ slug: req.params.slug });
-  if (!p) return res.status(404).json({ error: "not found" });
-  res.json(p);
-});
+app.get(
+  "/products/:slug",
+  asyncRoute(async (req, res) => {
+    const p = await Product.findOne({ slug: req.params.slug });
+    if (!p) return res.status(404).json({ error: "not found" });
+    res.json(p);
+  })
+);
 
 /* admin */
 
-app.post("/admin/products", async (req, res) => {
-  const payload = { ...req.body };
-  payload.slug = slugify(payload.name);
+app.post(
+  "/admin/products",
+  asyncRoute(async (req, res) => {
+    const payload = { ...req.body };
+    payload.slug = slugify(payload.name);
 
-  const p = await Product.create(payload);
-  res.status(201).json(p);
-});
+    const p = await Product.create(payload);
+    res.status(201).json(p);
+  })
+);
 
-app.put("/admin/products/:id", async (req, res) => {
-  const payload = { ...req.body };
-  payload.slug = slugify(payload.name);
+app.put(
+  "/admin/products/:id",
+  asyncRoute(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: "not found" });
+    }
 
-  const p = await Product.findByIdAndUpdate(
-    req.params.id,
-    payload,
-    { new: true }
-  );
+    const payload = { ...req.body };
+    payload.slug = slugify(payload.name);
 
-  res.json(p);
-});
+    const p = await Product.findByIdAndUpdate(req.params.id, payload, {
+      new: true,
+    });
 
-app.delete("/admin/products/:id", async (req, res) => {
-  await Product.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
+    if (!p) return res.status(404).json({ error: "not found" });
+
+    res.json(p);
+  })
+);
+
+app.delete(
+  "/admin/products/:id",
+  asyncRoute(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: "not found" });
+    }
+
+    const deleted = await Product.findByIdAndDelete(req.params.id);
+
+    if (!deleted) return res.status(404).json({ error: "not found" });
+
+    res.json({ success: true });
+  })
+);
 
 /* health */
 
-app.get("/", (_, res) => {
+app.get("/", (_req, res) => {
   res.send("MELINI backend running");
+});
+
+app.use((err: any, _req: any, res: any, _next: any) => {
+  console.error(err);
+  res.status(500).json({ error: err?.message || "internal server error" });
 });
 
 /* -------------------- DB -------------------- */
@@ -144,6 +184,10 @@ async function connectDB() {
   if (connected || mongoose.connection.readyState === 1) {
     connected = true;
     return;
+  }
+
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is not configured");
   }
 
   await mongoose.connect(MONGODB_URI);
