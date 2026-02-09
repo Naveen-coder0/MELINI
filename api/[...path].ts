@@ -1,6 +1,12 @@
-import app from "../backend/index";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import app, { connectDB } from "../backend/index";
 
-export default function handler(req: any, res: any) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  await connectDB();
+
   if (typeof req.url === "string" && req.url.startsWith("/api")) {
     req.url = req.url.replace(/^\/api/, "") || "/";
   }
