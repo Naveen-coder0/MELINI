@@ -45,6 +45,8 @@ const emptyProduct: Product = {
   colors: [{ name: 'Black', value: '#111111' }], inStock: true, material: '',
   careInstructions: ['Machine wash cold'], features: ['Comfort fit'],
   metaTitle: '', metaDescription: '', tags: [],
+  articleNo: '',
+  sizePricing: [{ size: 'S', price: 0 }, { size: 'M', price: 0 }, { size: 'L', price: 0 }],
 };
 const createSlug = (n: string) =>
   n.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -575,10 +577,85 @@ const Admin = () => {
                         )}
                       </div>
 
-                      <div><SL>Sizes</SL>
-                        <div className="flex flex-wrap gap-2 mb-2">{PRESET_SIZES.map((size) => (<button key={size} type="button" onClick={() => toggleSize(size)} className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${form.sizes.includes(size) ? 'border-violet-600 bg-violet-600 text-white shadow-sm' : 'border-border bg-background text-muted-foreground hover:border-violet-400'}`}>{size}</button>))}</div>
-                        <div className="flex gap-2"><Input value={customSize} onChange={(e) => setCustomSize(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomSize(); } }} placeholder="Custom size" className="h-8 text-sm" /><Button type="button" variant="outline" size="sm" onClick={addCustomSize} className="h-8 shrink-0"><Plus className="h-3.5 w-3.5" /></Button></div>
-                        {form.sizes.filter((s) => !PRESET_SIZES.includes(s)).length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{form.sizes.filter((s) => !PRESET_SIZES.includes(s)).map((s) => (<span key={s} className="flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-xs">{s}<button type="button" onClick={() => updateForm('sizes', form.sizes.filter((x) => x !== s))} className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button></span>))}</div>}
+                      {/* Article Number */}
+                      <div>
+                        <SL>Article No</SL>
+                        <Input
+                          value={form.articleNo ?? ''}
+                          onChange={(e) => updateForm('articleNo', e.target.value)}
+                          placeholder="e.g. MLN-001"
+                          className="font-mono text-sm"
+                        />
+                        <p className="mt-1 text-[10px] text-muted-foreground">Unique article / SKU number. Enter manually.</p>
+                      </div>
+
+                      {/* Sizes + per-size pricing */}
+                      <div><SL>Sizes &amp; Prices</SL>
+                        {/* preset toggles */}
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {PRESET_SIZES.map((size) => (
+                            <button key={size} type="button" onClick={() => {
+                              if (form.sizes.includes(size)) {
+                                updateForm('sizes', form.sizes.filter((s) => s !== size));
+                                updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
+                              } else {
+                                updateForm('sizes', [...form.sizes, size]);
+                                updateForm('sizePricing', [...(form.sizePricing ?? []), { size, price: form.price }]);
+                              }
+                            }}
+                              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${form.sizes.includes(size)
+                                  ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
+                                  : 'border-border bg-background text-muted-foreground hover:border-violet-400'
+                                }`}>
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                        {/* custom size */}
+                        <div className="flex gap-2 mb-3">
+                          <Input value={customSize} onChange={(e) => setCustomSize(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomSize(); updateForm('sizePricing', [...(form.sizePricing ?? []), { size: customSize.trim().toUpperCase(), price: form.price }]); } }}
+                            placeholder="Custom size" className="h-8 text-sm" />
+                          <Button type="button" variant="outline" size="sm" onClick={() => {
+                            addCustomSize();
+                            const s = customSize.trim().toUpperCase();
+                            if (s && !form.sizes.includes(s)) updateForm('sizePricing', [...(form.sizePricing ?? []), { size: s, price: form.price }]);
+                          }} className="h-8 shrink-0"><Plus className="h-3.5 w-3.5" /></Button>
+                        </div>
+                        {/* per-size price table */}
+                        {form.sizes.length > 0 && (
+                          <div className="rounded-xl border overflow-hidden">
+                            <div className="grid grid-cols-[1fr_1fr_auto] bg-muted/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                              <span>Size</span><span>Price (₹)</span><span></span>
+                            </div>
+                            {form.sizes.map((size) => {
+                              const sp = (form.sizePricing ?? []).find((x) => x.size === size);
+                              return (
+                                <div key={size} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 border-t px-3 py-2">
+                                  <span className="text-sm font-semibold">{size}</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={sp?.price ?? form.price}
+                                    onChange={(e) => {
+                                      const newPrice = Number(e.target.value);
+                                      const existing = (form.sizePricing ?? []).filter((x) => x.size !== size);
+                                      updateForm('sizePricing', [...existing, { size, price: newPrice }]);
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                  <button type="button" onClick={() => {
+                                    updateForm('sizes', form.sizes.filter((s) => s !== size));
+                                    updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
+                                  }} className="text-muted-foreground hover:text-destructive transition-colors">
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <p className="mt-1.5 text-[10px] text-muted-foreground">Base price above is used as fallback if no size selected.</p>
                       </div>
 
                       <div><SL>Colors</SL>

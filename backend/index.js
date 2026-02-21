@@ -45,6 +45,8 @@ const ProductSchema = new mongoose.Schema(
     material: String,
     careInstructions: [String],
     features: [String],
+    articleNo: { type: String, sparse: true },
+    sizePricing: [{ size: String, price: Number }],
     metaTitle: String,
     metaDescription: String,
     tags: [String],

@@ -1,9 +1,16 @@
+export interface SizePrice {
+  size: string;
+  price: number;
+}
+
 export interface Product {
   id: string;
   name: string;
   slug: string;
-  price: number;
+  articleNo?: string;           // unique article / SKU number
+  price: number;                // default / base price
   originalPrice?: number;
+  sizePricing?: SizePrice[];    // per-size pricing overrides
   description: string;
   shortDescription: string;
   category: 'summer' | 'semi-winter' | 'winter';
