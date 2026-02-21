@@ -1,7 +1,7 @@
 import { Product } from "@/data/products";
 import { authHeaders } from "@/lib/auth";
 
-const API_BASE_URL = "/api";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || ""}/api`;
 
 const parseResponse = async <T>(response: Response): Promise<T> => {
   const payload = await response.json();

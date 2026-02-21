@@ -30,11 +30,24 @@ cloudinary.config({
 const ProductSchema = new mongoose.Schema(
   {
     name: String,
-    slug: String,
+    slug: { type: String, unique: true, sparse: true },
     price: Number,
+    originalPrice: Number,
     description: String,
+    shortDescription: String,
     images: [String],
     category: String,
+    sizes: [String],
+    colors: [{ name: String, value: String }],
+    inStock: { type: Boolean, default: true },
+    isBestSeller: Boolean,
+    isNewProduct: Boolean,
+    material: String,
+    careInstructions: [String],
+    features: [String],
+    metaTitle: String,
+    metaDescription: String,
+    tags: [String],
   },
   { timestamps: true }
 );
@@ -78,10 +91,19 @@ router.post("/admin/login", (req, res) => {
 
 /* ---------------- PRODUCTS ---------------- */
 
+// Helper to normalise a Mongo doc so the frontend gets `id` instead of `_id`
+const toClient = (doc) => {
+  const obj = doc.toObject ? doc.toObject() : doc;
+  obj.id = obj._id.toString();
+  delete obj._id;
+  delete obj.__v;
+  return obj;
+};
+
 router.get("/products", async (req, res) => {
   try {
     const items = await Product.find().sort({ createdAt: -1 });
-    res.json({ items });
+    res.json({ items: items.map(toClient) });
   } catch (err) {
     console.error(err);
     res.json({ items: [] });
@@ -91,18 +113,46 @@ router.get("/products", async (req, res) => {
 router.get("/products/:slug", async (req, res) => {
   const product = await Product.findOne({ slug: req.params.slug });
   if (!product) return res.status(404).json({ error: "Not found" });
-  res.json(product);
+  res.json(toClient(product));
 });
 
 /* ✅ CREATE PRODUCT (THIS WAS MISSING) */
 
 router.post("/admin/products", verifyAdmin, async (req, res) => {
   try {
-    const product = await Product.create(req.body);
-    res.status(201).json(product);
+    // Strip any client-supplied id so Mongo generates a fresh _id
+    const { id, _id, ...body } = req.body;
+    const product = await Product.create(body);
+    res.status(201).json(toClient(product));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create product" });
+  }
+});
+
+router.put("/admin/products/:id", verifyAdmin, async (req, res) => {
+  try {
+    const { id, _id, ...body } = req.body;
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      body,
+      { new: true, runValidators: true }
+    );
+    if (!product) return res.status(404).json({ error: "Not found" });
+    res.json(toClient(product));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update product" });
+  }
+});
+
+router.delete("/admin/products/:id", verifyAdmin, async (req, res) => {
+  try {
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete product" });
   }
 });
 

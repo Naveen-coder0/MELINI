@@ -120,7 +120,7 @@ const Lightbox = ({ images, startIndex, onClose }: { images: string[]; startInde
 /* ════ main ════ */
 
 const Admin = () => {
-  const { products, addProduct, updateProduct, deleteProduct, isLoading } = useProducts();
+  const { products, addProduct, updateProduct, deleteProduct, refreshProducts, isLoading } = useProducts();
   const { logout } = useAuth();
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
@@ -221,7 +221,7 @@ const Admin = () => {
           const reader = new FileReader();
           reader.onload = async () => {
             try {
-              const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
+              const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -250,7 +250,7 @@ const Admin = () => {
 
     if (imageUrl.includes('cloudinary.com')) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
+        await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -321,8 +321,15 @@ const Admin = () => {
 
   const handleSync = async () => {
     setIsSyncing(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setIsSyncing(false); showSuccess('Synced from DB!'); logActivity('Manual DB sync triggered', 'info');
+    try {
+      await refreshProducts();
+      showSuccess('Synced from DB!');
+      logActivity('Manual DB sync triggered', 'info');
+    } catch {
+      setRequestError('Sync failed');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   /* ════ render ════ */

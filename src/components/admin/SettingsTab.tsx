@@ -35,7 +35,7 @@ export const SettingsTab = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-       fetch(`${import.meta.env.VITE_API_URL}/api/admin/settings`, { headers: authHeaders() })
+        fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/settings`, { headers: authHeaders() })
             .then((r) => r.json())
             .then((data) => setSettings({ ...defaultSettings, ...data }))
             .catch(() => { })
@@ -49,7 +49,7 @@ export const SettingsTab = () => {
         e.preventDefault();
         setIsSaving(true); setError(null);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/settings`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(settings),

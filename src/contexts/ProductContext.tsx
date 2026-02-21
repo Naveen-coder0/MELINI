@@ -55,12 +55,10 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
       setIsLoading(true);
       setError(null);
       const dbProducts = await fetchProducts();
-      if (dbProducts && dbProducts.length > 0) {
-        setProducts(dbProducts);
-      }
-      // If DB returns empty, keep whatever is in localStorage (already loaded)
+      // Always trust the DB — localStorage is only a loading cache
+      setProducts(dbProducts ?? []);
     } catch {
-      // DB unavailable — keep localStorage products
+      // DB unavailable — keep whatever is already loaded (localStorage cache)
     } finally {
       setIsLoading(false);
     }
