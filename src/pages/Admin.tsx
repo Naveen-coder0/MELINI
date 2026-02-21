@@ -221,7 +221,14 @@ const Admin = () => {
           const reader = new FileReader();
           reader.onload = async () => {
             try {
-              const res = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ data: reader.result }) });
+              const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...authHeaders(),
+                },
+                body: JSON.stringify({ data: reader.result }),
+              });
               const json = await res.json();
               if (!res.ok) throw new Error(json.error || 'Upload failed');
               resolve(json.url);
@@ -236,10 +243,24 @@ const Admin = () => {
   };
 
   const handleImageRemove = async (imageUrl: string, index: number) => {
-    setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+
     if (imageUrl.includes('cloudinary.com')) {
-      try { await fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ url: imageUrl }) }); }
-      catch { /* ignore */ }
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders()
+          },
+          body: JSON.stringify({ url: imageUrl })
+        });
+      } catch {
+        /* ignore */
+      }
     }
   };
 
