@@ -82,11 +82,13 @@ ${paymentId}
     try {
       setIsSubmitting(true);
 
-      const res = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: total })
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/create-order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: total })
+        });
 
       const order = await res.json();
 
@@ -388,4 +390,4 @@ ${paymentId}
   );
 };
 
-export default Checkout;
+export default Checkout;  
