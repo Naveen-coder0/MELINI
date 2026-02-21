@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Share2, Truck, RotateCcw, Shield, ChevronRight, Minus, Plus, Check } from 'lucide-react';
+import { Heart, Share2, Truck, RotateCcw, Shield, ChevronRight, Minus, Plus, Check, Flame } from 'lucide-react';
 import { Product } from '@/data/products';
 import { useProducts } from '@/contexts/ProductContext';
 import { useCart } from '@/contexts/CartContext';
@@ -10,6 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import ProductCard from '@/components/shop/ProductCard';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { cn } from '@/lib/utils';
+import ScrollProgressBar from '@/components/ScrollProgressBar';
+import SizeGuideModal from '@/components/SizeGuideModal';
+import RecentlyViewed, { addRecentlyViewed } from '@/components/RecentlyViewed';
 
 const ProductDetails = () => {
   const { slug } = useParams();
@@ -17,13 +22,22 @@ const ProductDetails = () => {
   const product = getProductBySlug(slug || '');
   const { addItem } = useCart();
   const { toast } = useToast();
-  
+  const { toggleWishlist, isWishlisted } = useWishlist();
+
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState(product?.colors[0] || { name: '', value: '' });
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+
+  const wishlisted = product ? isWishlisted(product.id) : false;
+  const lowStock = (product as any)?.stockCount !== undefined && (product as any).stockCount < 5 && (product as any).stockCount > 0;
+
+  useEffect(() => {
+    if (product) addRecentlyViewed(product.id);
+  }, [product?.id]);
 
   if (!product) {
     return (
@@ -82,6 +96,8 @@ const ProductDetails = () => {
 
   return (
     <div className="pt-24">
+      <ScrollProgressBar />
+      <SizeGuideModal open={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} />
       {/* Breadcrumb */}
       <div className="container-custom py-4">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -123,10 +139,10 @@ const ProductDetails = () => {
                   }}
                 />
               </AnimatePresence>
-              
+
               {/* Badges */}
               <div className="absolute left-4 top-4 flex flex-col gap-2">
-                {product.isNew && (
+                {product.isNewProduct && (
                   <Badge className="bg-primary text-primary-foreground">New</Badge>
                 )}
                 {discount > 0 && (
@@ -136,8 +152,13 @@ const ProductDetails = () => {
 
               {/* Actions */}
               <div className="absolute right-4 top-4 flex flex-col gap-2">
-                <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full">
-                  <Heart className="h-5 w-5" />
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className={cn('h-10 w-10 rounded-full', wishlisted && 'bg-rose-50 hover:bg-rose-100')}
+                  onClick={() => { toggleWishlist(product.id); toast({ title: wishlisted ? '💔 Removed from wishlist' : '💛 Added to wishlist', description: product.name }); }}
+                >
+                  <Heart className={cn('h-5 w-5', wishlisted && 'fill-rose-500 stroke-rose-500')} />
                 </Button>
                 <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full">
                   <Share2 className="h-5 w-5" />
@@ -151,9 +172,8 @@ const ProductDetails = () => {
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`relative aspect-square w-20 overflow-hidden rounded-lg border-2 transition-all ${
-                    selectedImage === index ? 'border-primary' : 'border-transparent'
-                  }`}
+                  className={`relative aspect-square w-20 overflow-hidden rounded-lg border-2 transition-all ${selectedImage === index ? 'border-primary' : 'border-transparent'
+                    }`}
                 >
                   <img
                     src={image}
@@ -197,11 +217,10 @@ const ProductDetails = () => {
                   <button
                     key={color.name}
                     onClick={() => setSelectedColor(color)}
-                    className={`relative h-10 w-10 rounded-full border-2 transition-all ${
-                      selectedColor.name === color.name
-                        ? 'border-primary ring-2 ring-primary/30'
-                        : 'border-transparent'
-                    }`}
+                    className={`relative h-10 w-10 rounded-full border-2 transition-all ${selectedColor.name === color.name
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-transparent'
+                      }`}
                     style={{ backgroundColor: color.value }}
                     title={color.name}
                   >
@@ -216,19 +235,20 @@ const ProductDetails = () => {
             {/* Sizes */}
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <label className="text-sm font-medium">Select Size</label>
-                <button className="text-sm text-primary hover:underline">Size Guide</button>
+                <label className="text-sm font-medium">Select Size
+                  {!selectedSize && <span className="ml-1 text-xs text-muted-foreground">(required)</span>}
+                </label>
+                <button onClick={() => setSizeGuideOpen(true)} className="text-sm text-primary hover:underline">📐 Size Guide</button>
               </div>
               <div className="flex flex-wrap gap-3">
                 {product.sizes.map((size) => (
                   <button
                     key={size}
                     onClick={() => setSelectedSize(size)}
-                    className={`flex h-12 w-12 items-center justify-center rounded-lg border text-sm font-medium transition-all ${
-                      selectedSize === size
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border hover:border-primary'
-                    }`}
+                    className={`flex h-12 w-12 items-center justify-center rounded-lg border text-sm font-medium transition-all ${selectedSize === size
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border hover:border-primary'
+                      }`}
                   >
                     {size}
                   </button>
@@ -261,6 +281,11 @@ const ProductDetails = () => {
                 {!product.inStock && (
                   <span className="text-sm text-destructive">Out of stock</span>
                 )}
+                {lowStock && (
+                  <span className="flex items-center gap-1 text-sm font-medium text-orange-500">
+                    <Flame className="h-4 w-4" /> Only {(product as any).stockCount} left!
+                  </span>
+                )}
               </div>
             </div>
 
@@ -274,8 +299,13 @@ const ProductDetails = () => {
               >
                 {product.inStock ? 'Add to Cart' : 'Out of Stock'}
               </Button>
-              <Button size="lg" variant="outline" className="py-6">
-                <Heart className="h-5 w-5" />
+              <Button
+                size="lg"
+                variant="outline"
+                className={cn('py-6', wishlisted && 'border-rose-400 bg-rose-50 hover:bg-rose-100')}
+                onClick={() => { toggleWishlist(product.id); toast({ title: wishlisted ? '💔 Removed from wishlist' : '💛 Saved to wishlist', description: product.name }); }}
+              >
+                <Heart className={cn('h-5 w-5', wishlisted && 'fill-rose-500 stroke-rose-500')} />
               </Button>
             </div>
 
@@ -348,6 +378,9 @@ const ProductDetails = () => {
           </div>
         </section>
       )}
+
+      {/* Recently Viewed */}
+      <RecentlyViewed excludeId={product.id} />
     </div>
   );
 };

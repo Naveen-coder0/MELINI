@@ -1,4 +1,5 @@
 import { Product } from "@/data/products";
+import { authHeaders } from "@/lib/auth";
 
 const API_BASE_URL = "/api";
 
@@ -23,7 +24,7 @@ export const createProduct = async (
 ): Promise<Product> => {
   const response = await fetch(`${API_BASE_URL}/admin/products`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(product),
   });
 
@@ -37,7 +38,7 @@ export const editProduct = async (
     `${API_BASE_URL}/admin/products/${product.id}`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(product),
     }
   );
@@ -50,6 +51,7 @@ export const removeProduct = async (id: string): Promise<void> => {
     `${API_BASE_URL}/admin/products/${id}`,
     {
       method: "DELETE",
+      headers: { ...authHeaders() },
     }
   );
 

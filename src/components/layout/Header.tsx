@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShoppingBag, Menu, X, Heart, User } from 'lucide-react';
+import { Search, ShoppingBag, Menu, X, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import CartDrawer from '@/components/CartDrawer';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -14,19 +16,18 @@ const navLinks = [
   { name: 'Winter Wear', path: '/category/winter' },
   { name: 'About', path: '/about' },
   { name: 'Contact', path: '/contact' },
-  { name: 'Admin', path: '/admin' },
 ];
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const location = useLocation();
   const { totalItems } = useCart();
+  const { count: wishlistCount } = useWishlist();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -37,6 +38,8 @@ const Header = () => {
 
   return (
     <>
+      <CartDrawer open={isCartOpen} onClose={() => setIsCartOpen(false)} />
+
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -88,13 +91,27 @@ const Header = () => {
             <Link to="/search" className="p-2 transition-colors hover:text-primary">
               <Search className="h-5 w-5" />
             </Link>
-            <button className="hidden p-2 transition-colors hover:text-primary md:block">
+
+            {/* Wishlist */}
+            <Link to="/shop" className="relative hidden p-2 transition-colors hover:text-primary md:block" title="Wishlist">
               <Heart className="h-5 w-5" />
-            </button>
-            <button className="hidden p-2 transition-colors hover:text-primary md:block">
-              <User className="h-5 w-5" />
-            </button>
-            <Link to="/cart" className="relative p-2 transition-colors hover:text-primary">
+              {wishlistCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white"
+                >
+                  {wishlistCount}
+                </motion.span>
+              )}
+            </Link>
+
+            {/* Cart — opens drawer */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="relative p-2 transition-colors hover:text-primary"
+              aria-label="Open cart"
+            >
               <ShoppingBag className="h-5 w-5" />
               {totalItems > 0 && (
                 <motion.span
@@ -105,7 +122,7 @@ const Header = () => {
                   {totalItems}
                 </motion.span>
               )}
-            </Link>
+            </button>
           </div>
         </div>
       </motion.header>
@@ -157,11 +174,17 @@ const Header = () => {
                 ))}
               </nav>
               <div className="mt-10 flex gap-4">
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="relative" onClick={() => { setIsMobileMenuOpen(false); setIsCartOpen(true); }}>
                   <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">{wishlistCount}</span>
+                  )}
                 </Button>
-                <Button variant="outline" size="icon">
-                  <User className="h-5 w-5" />
+                <Button variant="outline" size="icon" className="relative" onClick={() => { setIsMobileMenuOpen(false); setIsCartOpen(true); }}>
+                  <ShoppingBag className="h-5 w-5" />
+                  {totalItems > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">{totalItems}</span>
+                  )}
                 </Button>
               </div>
             </motion.div>

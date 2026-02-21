@@ -5,6 +5,8 @@ import CategoryShowcase from '@/components/home/CategoryShowcase';
 import BrandStory from '@/components/home/BrandStory';
 import CustomerStats from '@/components/home/CustomerStats';
 import SeasonalCollection from '@/components/home/SeasonalCollection';
+import NewArrivalsSection from '@/components/home/NewArrivalsSection';
+import BestSellersSection from '@/components/home/BestSellersSection';
 
 const Index = () => {
   return (
@@ -16,6 +18,8 @@ const Index = () => {
     >
       <HeroSection />
       <CategoryShowcase />
+      <NewArrivalsSection />
+      <BestSellersSection />
       <FeaturedProducts />
       <SeasonalCollection />
       <BrandStory />

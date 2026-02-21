@@ -26,10 +26,10 @@ type SortOption = 'newest' | 'price-low' | 'price-high' | 'best-selling';
 
 const Shop = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { products } = useProducts();
+  const { products, isLoading } = useProducts();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
+
   const sortOption = (searchParams.get('sort') as SortOption) || 'newest';
   const selectedCategory = searchParams.get('category') || 'all';
   const selectedSizes = searchParams.get('sizes')?.split(',').filter(Boolean) || [];
@@ -73,7 +73,7 @@ const Shop = () => {
         break;
       case 'newest':
       default:
-        result.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+        result.sort((a, b) => (b.isNewProduct ? 1 : 0) - (a.isNewProduct ? 1 : 0));
     }
 
     return result;
@@ -170,34 +170,32 @@ const Shop = () => {
               </div>
             </div>
 
-            {/* Product Grid */}
-            <motion.div
-              layout
-              className={
-                viewMode === 'grid'
-                  ? 'grid gap-6 sm:grid-cols-2 xl:grid-cols-3'
-                  : 'flex flex-col gap-4'
-              }
-            >
-              {filteredProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <ProductCard product={product} variant={viewMode} />
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {filteredProducts.length === 0 && (
-              <div className="flex h-64 items-center justify-center">
-                <div className="text-center">
-                  <p className="text-lg font-medium">No products found</p>
-                  <p className="mt-2 text-muted-foreground">Try adjusting your filters</p>
-                </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <p className="text-lg font-medium">No products found</p>
+                <p className="mt-2 text-sm text-muted-foreground">Try adjusting your filters</p>
+              </div>
+            ) : (
+              <div
+                className={`grid gap-6 ${viewMode === 'grid'
+                    ? 'sm:grid-cols-2 lg:grid-cols-3'
+                    : 'grid-cols-1'
+                  }`}
+              >
+                {filteredProducts.map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <ProductCard product={product} variant={viewMode} />
+                  </motion.div>
+                ))}
               </div>
             )}
           </div>

@@ -1,6 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Product, products as seedProducts } from '@/data/products';
+import { Product } from '@/data/products';
 import { createProduct, editProduct, fetchProducts, removeProduct } from '@/lib/productApi';
+
+const STORAGE_KEY = 'melini_products';
+
+const loadFromStorage = (): Product[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Product[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveToStorage = (products: Product[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  } catch {
+    // ignore storage errors
+  }
+};
 
 interface ProductContextValue {
   products: Product[];
@@ -18,18 +37,30 @@ interface ProductContextValue {
 const ProductContext = createContext<ProductContextValue | undefined>(undefined);
 
 export const ProductProvider = ({ children }: { children: React.ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>(seedProducts);
+  const [products, setProductsRaw] = useState<Product[]>(loadFromStorage);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep localStorage in sync whenever products change
+  const setProducts = (updater: Product[] | ((prev: Product[]) => Product[])) => {
+    setProductsRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveToStorage(next);
+      return next;
+    });
+  };
 
   const refreshProducts = async () => {
     try {
       setIsLoading(true);
       setError(null);
       const dbProducts = await fetchProducts();
-      setProducts(dbProducts);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to fetch products');
+      if (dbProducts && dbProducts.length > 0) {
+        setProducts(dbProducts);
+      }
+      // If DB returns empty, keep whatever is in localStorage (already loaded)
+    } catch {
+      // DB unavailable — keep localStorage products
     } finally {
       setIsLoading(false);
     }
@@ -37,6 +68,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
 
   useEffect(() => {
     refreshProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo<ProductContextValue>(() => ({
@@ -45,22 +77,32 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
     error,
     refreshProducts,
     addProduct: async (product) => {
-      const createdProduct = await createProduct(product);
-      setProducts((prevProducts) => [createdProduct, ...prevProducts]);
+      try {
+        const createdProduct = await createProduct(product);
+        setProducts((prev) => [createdProduct, ...prev]);
+      } catch {
+        setProducts((prev) => [{ ...product, id: `local-${Date.now()}` }, ...prev]);
+      }
     },
     updateProduct: async (updatedProduct) => {
-      const product = await editProduct(updatedProduct);
-      setProducts((prevProducts) =>
-        prevProducts.map((item) => (item.id === product.id ? product : item))
-      );
+      try {
+        const product = await editProduct(updatedProduct);
+        setProducts((prev) => prev.map((item) => (item.id === product.id ? product : item)));
+      } catch {
+        setProducts((prev) => prev.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)));
+      }
     },
     deleteProduct: async (id) => {
-      await removeProduct(id);
-      setProducts((prevProducts) => prevProducts.filter((product) => product.id !== id));
+      try {
+        await removeProduct(id);
+      } catch {
+        // ignore backend error
+      }
+      setProducts((prev) => prev.filter((product) => product.id !== id));
     },
     getProductBySlug: (slug) => products.find((product) => product.slug === slug),
     getProductsByCategory: (category) => products.filter((product) => product.category === category),
-    getFeaturedProducts: () => products.filter((product) => product.isBestSeller || product.isNew).slice(0, 8),
+    getFeaturedProducts: () => products.filter((product) => product.isBestSeller || product.isNewProduct).slice(0, 8),
   }), [error, isLoading, products]);
 
   return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>;
