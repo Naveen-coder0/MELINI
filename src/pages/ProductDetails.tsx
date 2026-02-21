@@ -91,20 +91,22 @@ const ProductDetails = () => {
   };
 
   const currentPrice = useMemo(() => {
-    if (!selectedSize || !product.sizePricing || product.sizePricing.length === 0) {
+    const sizeToLookup = selectedSize || 'S';
+    if (!product.sizePricing || product.sizePricing.length === 0) {
       return product.price;
     }
     const pricing = product.sizePricing.find(
-      (sp) => sp.size.toLowerCase() === selectedSize.toLowerCase()
+      (sp) => sp.size.toLowerCase() === sizeToLookup.toLowerCase()
     );
     return pricing && pricing.price > 0 ? pricing.price : product.price;
   }, [selectedSize, product.price, product.sizePricing]);
 
   const currentOriginalPrice = useMemo(() => {
     if (!product.originalPrice) return undefined;
-    if (selectedSize && product.sizePricing && product.sizePricing.length > 0) {
+    const sizeToLookup = selectedSize || 'S';
+    if (product.sizePricing && product.sizePricing.length > 0) {
       const pricing = product.sizePricing.find(
-        (sp) => sp.size.toLowerCase() === selectedSize.toLowerCase()
+        (sp) => sp.size.toLowerCase() === sizeToLookup.toLowerCase()
       );
       if (pricing && pricing.price > 0 && product.price > 0) {
         return Math.round(product.originalPrice * (pricing.price / product.price));
