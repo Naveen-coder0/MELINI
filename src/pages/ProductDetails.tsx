@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Share2, Truck, RotateCcw, Shield, ChevronRight, Minus, Plus, Check, Flame } from 'lucide-react';
@@ -70,7 +70,7 @@ const ProductDetails = () => {
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: currentPrice,
       image: product.images[0],
       size: selectedSize,
       color: selectedColor.name,
@@ -90,8 +90,36 @@ const ProductDetails = () => {
     setMousePosition({ x, y });
   };
 
-  const discount = product.originalPrice
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+  const currentPrice = useMemo(() => {
+    if (!selectedSize || !product.sizePricing || product.sizePricing.length === 0) {
+      return product.price;
+    }
+    const pricing = product.sizePricing.find(
+      (sp) => sp.size.toLowerCase() === selectedSize.toLowerCase()
+    );
+    return pricing && pricing.price > 0 ? pricing.price : product.price;
+  }, [selectedSize, product.price, product.sizePricing]);
+
+  const currentOriginalPrice = useMemo(() => {
+    if (!product.originalPrice) return undefined;
+    if (selectedSize && product.sizePricing && product.sizePricing.length > 0) {
+      const pricing = product.sizePricing.find(
+        (sp) => sp.size.toLowerCase() === selectedSize.toLowerCase()
+      );
+      if (pricing && pricing.price > 0 && product.price > 0) {
+        return Math.round(product.originalPrice * (pricing.price / product.price));
+      }
+    }
+    return product.originalPrice;
+  }, [selectedSize, product.price, product.originalPrice, product.sizePricing]);
+
+  // Simple version: just use the base original price or scale it if we want to be fancy. 
+  // Given the admin page doesn't seem to have per-size original pricing, we'll stick to the base or a proportional one.
+  // Actually, let's keep it simple: if sizePricing exists, we use that for the main price.
+  // The original price is usually a base reference.
+
+  const discount = currentOriginalPrice
+    ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
     : 0;
 
   return (
@@ -196,13 +224,13 @@ const ProductDetails = () => {
 
             {/* Price */}
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-semibold">₹{product.price.toLocaleString()}</span>
+              <span className="text-3xl font-semibold">₹{currentPrice.toLocaleString()}</span>
               {product.originalPrice && (
                 <span className="text-lg text-muted-foreground line-through">
                   ₹{product.originalPrice.toLocaleString()}
                 </span>
               )}
-              {discount > 0 && (
+              {discount > 0 && currentPrice === product.price && (
                 <span className="text-sm font-medium text-primary">Save {discount}%</span>
               )}
             </div>

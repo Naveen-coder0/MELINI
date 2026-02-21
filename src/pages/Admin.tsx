@@ -498,7 +498,11 @@ const Admin = () => {
                               <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-700'}`}>{product.category}</span>
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${product.inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{product.inStock ? '● In Stock' : '● Out of Stock'}</span>
                               {product.isBestSeller && <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"><Star className="h-2.5 w-2.5 fill-amber-500 stroke-amber-500" /> Best Seller</span>}
-                              <span className="text-xs font-medium text-muted-foreground">₹{product.price.toLocaleString('en-IN')}</span>
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {product.sizePricing && product.sizePricing.length > 0
+                                  ? `From ₹${Math.min(...product.sizePricing.map(sp => sp.price)).toLocaleString('en-IN')}`
+                                  : `₹${product.price.toLocaleString('en-IN')}`}
+                              </span>
                             </div>
                           </div>
                           <Switch checked={product.inStock} onCheckedChange={() => handleQuickStockToggle(product)} className="scale-75 shrink-0" />
@@ -604,8 +608,8 @@ const Admin = () => {
                               }
                             }}
                               className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${form.sizes.includes(size)
-                                  ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
-                                  : 'border-border bg-background text-muted-foreground hover:border-violet-400'
+                                ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
+                                : 'border-border bg-background text-muted-foreground hover:border-violet-400'
                                 }`}>
                               {size}
                             </button>
