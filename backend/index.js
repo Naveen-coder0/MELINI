@@ -18,7 +18,7 @@ cloudinary.config({
 const app = express();
 const router = express.Router(); // ✅ NEW
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = process.env.PORT || 8080;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(cors());
