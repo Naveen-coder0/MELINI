@@ -5,9 +5,19 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 
 dotenv.config();
+
+const app = express();
+const router = express.Router();
+
+const PORT = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI;
+
+app.use(cors());
+app.use(express.json({ limit: "20mb" }));
+
+/* ---------------- CLOUDINARY ---------------- */
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -15,23 +25,32 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const app = express();
-const router = express.Router(); // ✅ NEW
+/* ---------------- PRODUCT SCHEMA ---------------- */
 
-const PORT = process.env.PORT || 8080;
-const MONGODB_URI = process.env.MONGODB_URI;
+const ProductSchema = new mongoose.Schema(
+  {
+    name: String,
+    slug: String,
+    price: Number,
+    description: String,
+    images: [String],
+    category: String,
+  },
+  { timestamps: true }
+);
 
-app.use(cors());
-app.use(express.json({ limit: "20mb" }));
+const Product = mongoose.model("Product", ProductSchema);
 
-/* -------------------- AUTH -------------------- */
+/* ---------------- AUTH ---------------- */
 
 const verifyAdmin = (req, res, next) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+
   const token = auth.slice(7);
+
   try {
     jwt.verify(token, process.env.JWT_SECRET);
     next();
@@ -40,11 +59,9 @@ const verifyAdmin = (req, res, next) => {
   }
 };
 
-/* -------------------- ROUTES -------------------- */
-
-/* AUTH */
 router.post("/admin/login", (req, res) => {
   const { username, password } = req.body;
+
   if (
     username !== process.env.ADMIN_USERNAME ||
     password !== process.env.ADMIN_PASSWORD
@@ -59,23 +76,38 @@ router.post("/admin/login", (req, res) => {
   res.json({ token });
 });
 
-/* PRODUCTS */
+/* ---------------- PRODUCTS ---------------- */
+
 router.get("/products", async (req, res) => {
   try {
-    const items = await mongoose.model("Product").find().sort({ createdAt: -1 });
+    const items = await Product.find().sort({ createdAt: -1 });
     res.json({ items });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.json({ items: [] });
   }
 });
 
 router.get("/products/:slug", async (req, res) => {
-  const p = await mongoose.model("Product").findOne({ slug: req.params.slug });
-  if (!p) return res.status(404).json({ error: "not found" });
-  res.json(p);
+  const product = await Product.findOne({ slug: req.params.slug });
+  if (!product) return res.status(404).json({ error: "Not found" });
+  res.json(product);
 });
 
-/* CREATE ORDER */
+/* ✅ CREATE PRODUCT (THIS WAS MISSING) */
+
+router.post("/admin/products", verifyAdmin, async (req, res) => {
+  try {
+    const product = await Product.create(req.body);
+    res.status(201).json(product);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create product" });
+  }
+});
+
+/* ---------------- CREATE ORDER ---------------- */
+
 router.post("/create-order", async (req, res) => {
   const { amount } = req.body;
 
@@ -93,30 +125,28 @@ router.post("/create-order", async (req, res) => {
   res.json(razorpayOrder);
 });
 
-/* UPLOAD */
+/* ---------------- UPLOAD ---------------- */
+
 router.post("/upload", verifyAdmin, async (req, res) => {
   const { data } = req.body;
+
   const result = await cloudinary.uploader.upload(data, {
     folder: "melini",
   });
+
   res.json({ url: result.secure_url });
 });
 
-/* HEALTH */
+/* ---------------- HEALTH ---------------- */
+
 app.get("/", (_req, res) => {
   res.send("MELINI backend running");
 });
 
-/* ✅ THIS IS THE MAGIC LINE */
 app.use("/api", router);
 
-/* ERROR HANDLER */
-app.use((err, _req, res, _next) => {
-  console.error(err);
-  res.status(500).json({ error: err?.message || "internal server error" });
-});
+/* ---------------- DB CONNECT ---------------- */
 
-/* DB CONNECT */
 async function connectDB() {
   if (!MONGODB_URI) throw new Error("MONGODB_URI missing");
   await mongoose.connect(MONGODB_URI);
