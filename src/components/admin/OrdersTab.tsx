@@ -36,7 +36,7 @@ export const OrdersTab = () => {
     const [filter, setFilter] = useState('all');
 
     useEffect(() => {
-        fetch('/api/admin/orders', { headers: authHeaders() })
+        fetch(`${import.meta.env.VITE_API_URL}/api/admin/orders`, {headers: authHeaders() })
             .then((r) => r.json())
             .then((data) => setOrders(data.orders || []))
             .catch(() => { })
