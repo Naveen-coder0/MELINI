@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Share2, Truck, RotateCcw, Shield, ChevronRight, Minus, Plus, Check, Flame } from 'lucide-react';
+import { Heart, Share2, Truck, RotateCcw, Shield, ChevronRight, Minus, Plus, Check, Flame, MessageCircle, Eye } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Product } from '@/data/products';
 import { useProducts } from '@/contexts/ProductContext';
 import { useCart } from '@/contexts/CartContext';
@@ -50,9 +51,12 @@ const ProductDetails = () => {
     return product.images.length > 0 ? product.images : [];
   }, [selectedColor, product.colors, product.images]);
 
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   // Reset image index when color (and thus images) changes
   useEffect(() => {
     setSelectedImage(0);
+    setImageLoaded(false);
   }, [activeImages]);
 
   useEffect(() => {
@@ -143,6 +147,14 @@ const ProductDetails = () => {
     ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
     : 0;
 
+  const priceRange = useMemo(() => {
+    if (!product.sizePricing || product.sizePricing.length <= 1) return null;
+    const prices = product.sizePricing.map(sp => sp.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max ? null : { min, max };
+  }, [product.sizePricing]);
+
   return (
     <div className="pt-24">
       <ScrollProgressBar />
@@ -168,19 +180,23 @@ const ProductDetails = () => {
           {/* Image Gallery */}
           <div className="space-y-4">
             <motion.div
-              className="relative aspect-[4/5] overflow-hidden rounded-xl bg-secondary"
+              className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-secondary"
               onMouseEnter={() => setIsZoomed(true)}
               onMouseLeave={() => setIsZoomed(false)}
               onMouseMove={handleMouseMove}
             >
+              {!imageLoaded && (
+                <Skeleton className="absolute inset-0 h-full w-full" />
+              )}
               <AnimatePresence mode="wait">
                 <motion.img
                   key={selectedImage}
                   src={activeImages[selectedImage]}
                   alt={product.name}
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  animate={{ opacity: imageLoaded ? 1 : 0 }}
                   exit={{ opacity: 0 }}
+                  onLoad={() => setImageLoaded(true)}
                   className="h-full w-full object-cover transition-transform duration-300"
                   style={{
                     transform: isZoomed ? `scale(2)` : 'scale(1)',
@@ -245,14 +261,21 @@ const ProductDetails = () => {
 
             {/* Price */}
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-semibold">₹{currentPrice.toLocaleString()}</span>
+              {!selectedSize && priceRange ? (
+                <span className="text-3xl font-semibold">
+                  From ₹{priceRange.min.toLocaleString()}
+                </span>
+              ) : (
+                <span className="text-3xl font-semibold">₹{currentPrice.toLocaleString()}</span>
+              )}
+
               {product.originalPrice && (
                 <span className="text-lg text-muted-foreground line-through">
-                  ₹{product.originalPrice.toLocaleString()}
+                  ₹{currentOriginalPrice.toLocaleString()}
                 </span>
               )}
-              {discount > 0 && currentPrice === product.price && (
-                <span className="text-sm font-medium text-primary">Save {discount}%</span>
+              {discount > 0 && (
+                <span className="text-sm font-medium text-destructive">Save {discount}%</span>
               )}
             </div>
 
@@ -347,6 +370,17 @@ const ProductDetails = () => {
                 disabled={!product.inStock}
               >
                 {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+              </Button>
+              <Button
+                className="flex-1 gap-2 bg-[#25D366] text-white hover:bg-[#22c35e] py-6"
+                size="lg"
+                onClick={() => {
+                  const message = encodeURIComponent(`Hi MELINI, I'm interested in the ${product.name} in ${selectedColor.name} color and ${selectedSize} size. Can you help me with this?`);
+                  window.open(`https://wa.me/91XXXXXXXXXX?text=${message}`, '_blank');
+                }}
+              >
+                <MessageCircle className="h-5 w-5 fill-white" />
+                Buy on WhatsApp
               </Button>
               <Button
                 size="lg"
