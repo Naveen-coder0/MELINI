@@ -218,30 +218,45 @@ const Admin = () => {
     if (!files?.length) return;
     setIsUploading(true); setRequestError(null);
     try {
+      console.log("Starting upload to:", `${import.meta.env.VITE_API_URL || ""}/api/upload`);
+      const headers = authHeaders();
+      console.log("Auth headers present:", !!headers.Authorization);
+
       const urls = await Promise.all(Array.from(files).map((file) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...authHeaders(),
-                },
-                body: JSON.stringify({ data: reader.result }),
-              });
-              const json = await res.json();
-              if (!res.ok) throw new Error(json.error || 'Upload failed');
-              resolve(json.url);
-            } catch (err) { reject(err); }
-          };
-          reader.onerror = reject; reader.readAsDataURL(file);
+        new Promise<string>(async (resolve, reject) => {
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
+              method: 'POST',
+              headers: {
+                ...headers,
+              },
+              body: formData,
+            });
+
+            const json = await res.json();
+            if (!res.ok) {
+              console.error("Upload response error:", json);
+              throw new Error(json.error || json.details || 'Upload failed');
+            }
+            resolve(json.url);
+          } catch (err) {
+            console.error("Individual file upload error:", err);
+            reject(err);
+          }
         })
       ));
       setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
-    } catch { setRequestError('Image upload failed.'); }
-    finally { setIsUploading(false); event.target.value = ''; }
+      showSuccess(`Uploaded ${urls.length} images`);
+    } catch (err) {
+      console.error("Batch upload error:", err);
+      setRequestError(err instanceof Error ? err.message : 'Image upload failed.');
+    } finally {
+      setIsUploading(false);
+      if (event.target) event.target.value = '';
+    }
   };
 
   const handleImageRemove = async (imageUrl: string, index: number) => {
