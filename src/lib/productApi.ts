@@ -4,6 +4,13 @@ import { authHeaders } from "@/lib/auth";
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || ""}/api`;
 
 const parseResponse = async <T>(response: Response): Promise<T> => {
+  if (response.status === 401) {
+    const { clearToken } = await import("./auth");
+    clearToken();
+    // Use a custom error that can be caught as a 401
+    throw new Error("401 Unauthorized: Session expired");
+  }
+
   const payload = await response.json();
 
   if (!response.ok) {

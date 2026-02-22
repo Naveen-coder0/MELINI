@@ -71,15 +71,26 @@ const Product = mongoose.model("Product", ProductSchema);
 const verifyAdmin = (req, res, next) => {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
+    console.warn("Auth failed: Missing or malformed Authorization header");
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   const token = auth.slice(7);
 
+  if (!process.env.JWT_SECRET) {
+    console.error("CRITICAL ERROR: JWT_SECRET is not defined in environment variables!");
+    return res.status(500).json({ error: "Server configuration error" });
+  }
+
   try {
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.admin = decoded;
     next();
-  } catch {
+  } catch (err) {
+    console.warn("Auth failed: Invalid or expired token", {
+      error: err.message,
+      token_prefix: token.slice(0, 10) + "..."
+    });
     res.status(401).json({ error: "Invalid or expired token" });
   }
 };

@@ -236,6 +236,12 @@ const Admin = () => {
               body: formData,
             });
 
+            if (res.status === 401) {
+              console.warn("Session expired during upload. Logging out.");
+              handleLogout();
+              throw new Error("Session expired. Please log in again.");
+            }
+
             const json = await res.json();
             if (!res.ok) {
               console.error("Upload response error:", json);
@@ -347,7 +353,10 @@ const Admin = () => {
       await refreshProducts();
       showSuccess('Synced from DB!');
       logActivity('Manual DB sync triggered', 'info');
-    } catch {
+    } catch (err: any) {
+      if (err?.message?.includes('401') || err?.message?.toLowerCase().includes('authorized')) {
+        handleLogout();
+      }
       setRequestError('Sync failed');
     } finally {
       setIsSyncing(false);
