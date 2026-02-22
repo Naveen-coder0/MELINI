@@ -102,18 +102,17 @@ const ProductDetails = () => {
   }, [selectedSize, product.price, product.sizePricing]);
 
   const currentOriginalPrice = useMemo(() => {
-    if (!product.originalPrice) return undefined;
     const sizeToLookup = selectedSize || 'S';
     if (product.sizePricing && product.sizePricing.length > 0) {
       const pricing = product.sizePricing.find(
         (sp) => sp.size.toLowerCase() === sizeToLookup.toLowerCase()
       );
-      if (pricing && pricing.price > 0 && product.price > 0) {
-        return Math.round(product.originalPrice * (pricing.price / product.price));
+      if (pricing && pricing.originalPrice && pricing.originalPrice > 0) {
+        return pricing.originalPrice;
       }
     }
     return product.originalPrice;
-  }, [selectedSize, product.price, product.originalPrice, product.sizePricing]);
+  }, [selectedSize, product.originalPrice, product.sizePricing]);
 
   // Simple version: just use the base original price or scale it if we want to be fancy. 
   // Given the admin page doesn't seem to have per-size original pricing, we'll stick to the base or a proportional one.

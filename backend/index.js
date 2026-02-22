@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
 import jwt from "jsonwebtoken";
+import fileUpload from "express-fileupload";
 
 dotenv.config();
 
@@ -15,7 +16,12 @@ const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 app.use(cors());
-app.use(express.json({ limit: "20mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/'
+}));
 
 /* ---------------- CLOUDINARY ---------------- */
 
@@ -46,7 +52,7 @@ const ProductSchema = new mongoose.Schema(
     careInstructions: [String],
     features: [String],
     articleNo: { type: String, sparse: true },
-    sizePricing: [{ size: String, price: Number }],
+    sizePricing: [{ size: String, price: Number, originalPrice: Number }],
     metaTitle: String,
     metaDescription: String,
     tags: [String],
@@ -180,13 +186,38 @@ router.post("/create-order", async (req, res) => {
 /* ---------------- UPLOAD ---------------- */
 
 router.post("/upload", verifyAdmin, async (req, res) => {
-  const { data } = req.body;
+  try {
+    let uploadPath;
 
-  const result = await cloudinary.uploader.upload(data, {
-    folder: "melini",
-  });
+    if (req.files && req.files.file) {
+      // Handle file upload
+      uploadPath = req.files.file.tempFilePath;
+    } else if (req.body.data) {
+      // Handle base64 upload
+      uploadPath = req.body.data;
+    } else {
+      return res.status(400).json({ error: "No file or data uploaded" });
+    }
 
-  res.json({ url: result.secure_url });
+    console.log("Attempting Cloudinary upload...");
+    const result = await cloudinary.uploader.upload(uploadPath, {
+      folder: "melini",
+      resource_type: "auto"
+    });
+
+    console.log("Cloudinary upload successful:", result.secure_url);
+    res.json({ url: result.secure_url });
+  } catch (err) {
+    console.error("Detailed Cloudinary Upload Error:", {
+      message: err.message,
+      stack: err.stack,
+      cloudinary_error: err
+    });
+    res.status(500).json({
+      error: "Upload failed",
+      details: err.message
+    });
+  }
 });
 
 /* ---------------- HEALTH ---------------- */

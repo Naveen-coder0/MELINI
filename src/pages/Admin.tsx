@@ -46,7 +46,7 @@ const emptyProduct: Product = {
   careInstructions: ['Machine wash cold'], features: ['Comfort fit'],
   metaTitle: '', metaDescription: '', tags: [],
   articleNo: '',
-  sizePricing: [{ size: 'S', price: 0 }, { size: 'M', price: 0 }, { size: 'L', price: 0 }],
+  sizePricing: [{ size: 'S', price: 0, originalPrice: 0 }, { size: 'M', price: 0, originalPrice: 0 }, { size: 'L', price: 0, originalPrice: 0 }],
 };
 const createSlug = (n: string) =>
   n.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
@@ -169,7 +169,7 @@ const Admin = () => {
     total: products.length,
     inStock: products.filter((p) => p.inStock).length,
     outOfStock: products.filter((p) => !p.inStock).length,
-    totalValue: products.reduce((s, p) => s + p.price, 0),
+    totalValue: products.reduce((s, p) => s + (p.sizePricing?.find(sp => sp.size === 'S')?.price || p.price), 0),
     byCategory: {
       summer: products.filter((p) => p.category === 'summer').length,
       'semi-winter': products.filter((p) => p.category === 'semi-winter').length,
@@ -277,7 +277,12 @@ const Admin = () => {
     event.preventDefault();
     const id = editingId ?? `${Date.now()}`;
     const normalizedName = form.name.trim();
-    const payload: Product = { ...form, id, name: normalizedName, slug: form.slug.trim() || createSlug(normalizedName), price: Number(form.price) || 0, originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined, description: form.description.trim(), shortDescription: form.shortDescription.trim(), material: form.material.trim(), images: form.images.filter(Boolean), sizes: form.sizes.filter(Boolean), careInstructions: form.careInstructions.filter(Boolean), features: form.features.filter(Boolean) };
+    // Default base price to size 'S' price if available
+    const sPrice = form.sizePricing?.find(sp => sp.size.toUpperCase() === 'S');
+    const basePrice = sPrice?.price || (form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].price : 0);
+    const baseOriginalPrice = sPrice?.originalPrice || (form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].originalPrice : undefined);
+
+    const payload: Product = { ...form, id, name: normalizedName, slug: form.slug.trim() || createSlug(normalizedName), price: basePrice, originalPrice: baseOriginalPrice, description: form.description.trim(), shortDescription: form.shortDescription.trim(), material: form.material.trim(), images: form.images.filter(Boolean), sizes: form.sizes.filter(Boolean), careInstructions: form.careInstructions.filter(Boolean), features: form.features.filter(Boolean) };
     try {
       setRequestError(null);
       if (editingId) { await updateProduct(payload); showSuccess('Product updated!'); logActivity(`Edited: "${normalizedName}"`, 'edit'); }
@@ -552,15 +557,7 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      <div><SL>Pricing</SL>
-                        <div className="grid gap-3 grid-cols-2">
-                          <div><Label className="mb-1.5 block text-xs">Price (₹) *</Label><Input type="number" value={form.price} onChange={(e) => updateForm('price', Number(e.target.value))} required min={0} /></div>
-                          <div><Label className="mb-1.5 block text-xs">Original Price (₹)</Label><Input type="number" value={form.originalPrice ?? ''} onChange={(e) => updateForm('originalPrice', e.target.value ? Number(e.target.value) : undefined)} min={0} placeholder="Strikethrough" /></div>
-                        </div>
-                        {form.originalPrice && form.originalPrice > form.price && (
-                          <p className="mt-1.5 text-xs text-emerald-600 font-medium">💰 {Math.round(((form.originalPrice - form.price) / form.originalPrice) * 100)}% discount</p>
-                        )}
-                      </div>
+                      {/* Removed global Pricing section */}
 
                       <div><SL>Images</SL>
                         <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary ${isUploading ? 'pointer-events-none opacity-60' : ''}`}>
@@ -594,72 +591,136 @@ const Admin = () => {
                       </div>
 
                       {/* Sizes + per-size pricing */}
-                      <div><SL>Sizes &amp; Prices</SL>
-                        {/* preset toggles */}
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {PRESET_SIZES.map((size) => (
-                            <button key={size} type="button" onClick={() => {
-                              if (form.sizes.includes(size)) {
-                                updateForm('sizes', form.sizes.filter((s) => s !== size));
-                                updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
-                              } else {
-                                updateForm('sizes', [...form.sizes, size]);
-                                updateForm('sizePricing', [...(form.sizePricing ?? []), { size, price: form.price }]);
-                              }
-                            }}
-                              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${form.sizes.includes(size)
-                                ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
-                                : 'border-border bg-background text-muted-foreground hover:border-violet-400'
-                                }`}>
-                              {size}
-                            </button>
-                          ))}
-                        </div>
-                        {/* custom size */}
-                        <div className="flex gap-2 mb-3">
-                          <Input value={customSize} onChange={(e) => setCustomSize(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomSize(); updateForm('sizePricing', [...(form.sizePricing ?? []), { size: customSize.trim().toUpperCase(), price: form.price }]); } }}
-                            placeholder="Custom size" className="h-8 text-sm" />
-                          <Button type="button" variant="outline" size="sm" onClick={() => {
-                            addCustomSize();
-                            const s = customSize.trim().toUpperCase();
-                            if (s && !form.sizes.includes(s)) updateForm('sizePricing', [...(form.sizePricing ?? []), { size: s, price: form.price }]);
-                          }} className="h-8 shrink-0"><Plus className="h-3.5 w-3.5" /></Button>
-                        </div>
-                        {/* per-size price table */}
-                        {form.sizes.length > 0 && (
-                          <div className="rounded-xl border overflow-hidden">
-                            <div className="grid grid-cols-[1fr_1fr_auto] bg-muted/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                              <span>Size</span><span>Price (₹)</span><span></span>
-                            </div>
-                            {form.sizes.map((size) => {
-                              const sp = (form.sizePricing ?? []).find((x) => x.size === size);
-                              return (
-                                <div key={size} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 border-t px-3 py-2">
-                                  <span className="text-sm font-semibold">{size}</span>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={sp?.price ?? form.price}
-                                    onChange={(e) => {
-                                      const newPrice = Number(e.target.value);
-                                      const existing = (form.sizePricing ?? []).filter((x) => x.size !== size);
-                                      updateForm('sizePricing', [...existing, { size, price: newPrice }]);
-                                    }}
-                                    className="h-8 text-sm"
-                                  />
-                                  <button type="button" onClick={() => {
+                      {/* Sizes & Prices Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <SL>Sizes &amp; Prices</SL>
+                          <div className="flex gap-1.5">
+                            {PRESET_SIZES.map((size) => (
+                              <button
+                                key={size}
+                                type="button"
+                                onClick={() => {
+                                  if (form.sizes.includes(size)) {
                                     updateForm('sizes', form.sizes.filter((s) => s !== size));
                                     updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
-                                  }} className="text-muted-foreground hover:text-destructive transition-colors">
-                                    <X className="h-4 w-4" />
-                                  </button>
+                                  } else {
+                                    updateForm('sizes', [...form.sizes, size]);
+                                    const defaultPrice = form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].price : 0;
+                                    const defaultOrig = form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].originalPrice : 0;
+                                    updateForm('sizePricing', [...(form.sizePricing ?? []), { size, price: defaultPrice, originalPrice: defaultOrig }]);
+                                  }
+                                }}
+                                className={`h-8 min-w-[32px] rounded-md border px-2 text-[10px] font-bold transition-all ${form.sizes.includes(size)
+                                  ? 'border-violet-600 bg-violet-600 text-white'
+                                  : 'border-border bg-background text-muted-foreground hover:border-violet-400'
+                                  }`}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Custom size input */}
+                        <div className="flex gap-2 mb-4">
+                          <Input
+                            value={customSize}
+                            onChange={(e) => setCustomSize(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const s = customSize.trim().toUpperCase();
+                                if (s && !form.sizes.includes(s)) {
+                                  updateForm('sizes', [...form.sizes, s]);
+                                  updateForm('sizePricing', [...(form.sizePricing ?? []), { size: s, price: 0, originalPrice: 0 }]);
+                                  setCustomSize('');
+                                }
+                              }
+                            }}
+                            placeholder="Add custom size (e.g. 3XL)"
+                            className="h-9 text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              const s = customSize.trim().toUpperCase();
+                              if (s && !form.sizes.includes(s)) {
+                                updateForm('sizes', [...form.sizes, s]);
+                                updateForm('sizePricing', [...(form.sizePricing ?? []), { size: s, price: 0, originalPrice: 0 }]);
+                                setCustomSize('');
+                              }
+                            }}
+                            className="h-9"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Per-size pricing cards */}
+                        <div className="space-y-4">
+                          {form.sizes.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-muted-foreground">
+                              <p className="text-xs">No sizes selected. Click presets above or add a custom size.</p>
+                            </div>
+                          ) : (
+                            form.sizes.map((size) => {
+                              const sp = (form.sizePricing ?? []).find((x) => x.size === size);
+                              return (
+                                <div key={size} className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                                  <div className="flex items-center justify-between bg-muted/30 px-4 py-2 border-b">
+                                    <span className="text-xs font-bold uppercase tracking-widest text-violet-700">{size}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        updateForm('sizes', form.sizes.filter((s) => s !== size));
+                                        updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
+                                      }}
+                                      className="rounded-full p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <div className="p-4 grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Price (₹) *</Label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={sp?.price ?? 0}
+                                        onChange={(e) => {
+                                          const newPrice = Number(e.target.value);
+                                          updateForm('sizePricing', (form.sizePricing ?? []).map(x => x.size === size ? { ...x, price: newPrice } : x));
+                                        }}
+                                        className="h-9 font-medium"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Original Price (₹)</Label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={sp?.originalPrice ?? 0}
+                                        onChange={(e) => {
+                                          const newOrigPrice = Number(e.target.value);
+                                          updateForm('sizePricing', (form.sizePricing ?? []).map(x => x.size === size ? { ...x, originalPrice: newOrigPrice } : x));
+                                        }}
+                                        className="h-9 text-muted-foreground"
+                                        placeholder="Strikethrough"
+                                      />
+                                    </div>
+                                  </div>
                                 </div>
                               );
-                            })}
-                          </div>
-                        )}
-                        <p className="mt-1.5 text-[10px] text-muted-foreground">Base price above is used as fallback if no size selected.</p>
+                            })
+                          )}
+                        </div>
+                        <p className="mt-3 text-[10px] text-muted-foreground flex gap-1.5 items-center">
+                          <CheckCircle className="h-3 w-3 text-emerald-500" />
+                          Each size can have its own price. The lowest price will be shown in the shop.
+                        </p>
                       </div>
 
                       <div><SL>Colors</SL>

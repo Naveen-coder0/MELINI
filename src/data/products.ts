@@ -1,6 +1,7 @@
 export interface SizePrice {
   size: string;
   price: number;
+  originalPrice?: number;
 }
 
 export interface Product {
