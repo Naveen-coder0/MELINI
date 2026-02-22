@@ -3,8 +3,10 @@ import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import { useConfig } from '@/contexts/ConfigContext';
 
 const BrandStory = () => {
+  const { config } = useConfig();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -18,7 +20,7 @@ const BrandStory = () => {
     <section ref={containerRef} className="relative overflow-hidden py-24 md:py-32">
       {/* Background */}
       <div className="absolute inset-0 bg-brand-charcoal" />
-      
+
       {/* Decorative Elements */}
       <motion.div
         style={{ y }}
@@ -41,7 +43,7 @@ const BrandStory = () => {
             <div className="relative aspect-[4/5] overflow-hidden rounded-2xl">
               <img
                 src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800&auto=format&fit=crop&q=80"
-                alt="Melini craftsmanship"
+                alt={`${config.storeName || 'Melini'} craftsmanship`}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -70,7 +72,7 @@ const BrandStory = () => {
             >
               Our Story
             </motion.span>
-            
+
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -80,7 +82,7 @@ const BrandStory = () => {
             >
               Crafting Comfort Since 2018
             </motion.h2>
-            
+
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -88,12 +90,12 @@ const BrandStory = () => {
               transition={{ delay: 0.2 }}
               className="mt-6 text-lg leading-relaxed text-primary-foreground/80"
             >
-              Born from a passion for quality and a love for timeless style, 
-              Melini represents the perfect blend of traditional craftsmanship 
-              and modern elegance. Every piece we create tells a story of 
+              Born from a passion for quality and a love for timeless style,
+              {config.storeName || 'Melini'} represents the perfect blend of traditional craftsmanship
+              and modern elegance. Every piece we create tells a story of
               dedication, sustainability, and unwavering commitment to your comfort.
             </motion.p>
-            
+
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -101,8 +103,8 @@ const BrandStory = () => {
               transition={{ delay: 0.3 }}
               className="mt-4 text-lg leading-relaxed text-primary-foreground/80"
             >
-              We believe that true luxury lies in comfort. Our artisans pour 
-              their hearts into every stitch, ensuring that each garment not 
+              We believe that true luxury lies in comfort. Our artisans pour
+              their hearts into every stitch, ensuring that each garment not
               only looks beautiful but feels like a second skin.
             </motion.p>
 

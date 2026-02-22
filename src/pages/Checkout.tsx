@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
+import { useConfig } from '@/contexts/ConfigContext';
 
 declare global {
   interface Window {
@@ -18,6 +19,7 @@ declare global {
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
+  const { config } = useConfig();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -66,7 +68,7 @@ Payment ID:
 ${paymentId}
 `;
 
-    const shopWhatsappNumber = '919467269782';
+    const shopWhatsappNumber = config.whatsapp || '919467269782';
 
     const url =
       'https://wa.me/' +
@@ -117,7 +119,56 @@ ${paymentId}
           contact: phone
         },
 
-        handler: (response: any) => {
+        handler: async (response: any) => {
+          // 1. Save order to database
+          try {
+            const orderData = {
+              orderItems: items.map(item => ({
+                name: item.name,
+                qty: item.quantity,
+                image: item.image,
+                price: item.price,
+                product: item.id, // ID is usually valid ObjectId string
+                size: item.size,
+                // Color mapping if available, using default for now or extracting from item
+                color: item.color ? { name: item.color, value: '' } : undefined
+              })),
+              shippingAddress: {
+                address: (document.getElementById('address') as HTMLInputElement)?.value,
+                city: (document.getElementById('city') as HTMLInputElement)?.value,
+                postalCode: (document.getElementById('pincode') as HTMLInputElement)?.value,
+                country: 'India'
+              },
+              paymentMethod: 'Razorpay',
+              paymentResult: {
+                id: response.razorpay_payment_id,
+                status: 'paid',
+                update_time: new Date().toISOString(),
+                email_address: email
+              },
+              itemsPrice: totalPrice,
+              shippingPrice: shipping,
+              totalPrice: total,
+              isPaid: true,
+              paidAt: new Date(),
+              status: 'processing',
+              customer: {
+                name: `${firstName} ${lastName}`,
+                email,
+                phone
+              }
+            };
+
+            await fetch(`${import.meta.env.VITE_API_URL}/api/orders`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(orderData)
+            });
+          } catch (err) {
+            console.error("DB Order Save failed:", err);
+          }
+
+          // 2. Send WhatsApp
           sendOrderToWhatsapp(response.razorpay_payment_id);
 
           setStep('success');
@@ -125,7 +176,7 @@ ${paymentId}
 
           toast({
             title: 'Payment successful!',
-            description: `Payment ID: ${response.razorpay_payment_id}`
+            description: `Order successfully recorded.`
           });
         },
 

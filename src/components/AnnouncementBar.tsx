@@ -1,14 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Tag } from 'lucide-react';
+import { useConfig } from '@/contexts/ConfigContext';
 
-const DEFAULT_TEXT = '🎉 Free shipping on orders above ₹999 | Use code MELINI10 for 10% off!';
-
-interface AnnouncementBarProps {
-    text?: string;
-}
-
-const AnnouncementBar = ({ text = DEFAULT_TEXT }: AnnouncementBarProps) => {
+const AnnouncementBar = () => {
+    const { config } = useConfig();
+    const text = config.announcement;
     const [dismissed, setDismissed] = useState(() => {
         try { return sessionStorage.getItem('announcement_dismissed') === '1'; }
         catch { return false; }

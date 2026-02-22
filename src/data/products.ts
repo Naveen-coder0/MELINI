@@ -32,6 +32,7 @@ export interface Product {
   metaTitle?: string;
   metaDescription?: string;
   tags?: string[];
+  stockCount?: number;
 }
 
 export interface Category {

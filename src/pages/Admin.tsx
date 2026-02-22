@@ -1,838 +1,198 @@
-import { useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
-  AlertTriangle, CheckCircle, ChevronDown, Clock, Copy, Download,
-  ExternalLink, GripVertical, ImageIcon,
-  LogOut, Package, Pencil, Plus, RefreshCw, Save, Search,
-  Settings, ShoppingBag, Star, Trash2, Upload, X, XCircle,
+  LogOut, Package, Pencil, Plus, RefreshCw,
+  Settings, ShoppingBag, Star, LayoutDashboard, Menu, X, CheckCircle
 } from 'lucide-react';
-import { Product } from '@/data/products';
 import { useProducts } from '@/contexts/ProductContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { authHeaders } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { SettingsTab } from '@/components/admin/SettingsTab';
-import { OrdersTab } from '@/components/admin/OrdersTab';
+import { ReviewsTab } from '@/components/admin/ReviewsTab';
+import { ProductsTab } from '@/components/admin/ProductsTab';
+import { DashboardTab } from '@/components/admin/DashboardTab';
+import { MarketingTab } from '@/components/admin/MarketingTab';
+import { ContentTab } from '@/components/admin/ContentTab';
+import { Order, OrdersTab } from '@/components/admin/OrdersTab';
 
 /* ════ types & constants ════ */
 
-type Tab = 'products' | 'orders' | 'settings' | 'activity';
-
-interface ActivityEntry { id: number; msg: string; time: Date; type: 'add' | 'edit' | 'delete' | 'bulk' | 'info'; }
-
-const PRESET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const CATEGORY_COLORS: Record<string, string> = {
-  summer: 'bg-amber-100 text-amber-800 border-amber-200',
-  'semi-winter': 'bg-blue-100 text-blue-800 border-blue-200',
-  winter: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-};
-const FILTER_TABS = [
-  { label: 'All', value: 'all' },
-  { label: '☀️ Summer', value: 'summer' },
-  { label: '🍂 Semi-Winter', value: 'semi-winter' },
-  { label: '❄️ Winter', value: 'winter' },
-  { label: '✅ In Stock', value: 'instock' },
-  { label: '❌ Out of Stock', value: 'outofstock' },
-];
-const emptyProduct: Product = {
-  id: '', name: '', slug: '', price: 0, description: '', shortDescription: '',
-  category: 'summer', images: [], sizes: ['S', 'M', 'L'],
-  colors: [{ name: 'Black', value: '#111111', images: [] }], inStock: true, material: '',
-  careInstructions: ['Machine wash cold'], features: ['Comfort fit'],
-  metaTitle: '', metaDescription: '', tags: [],
-  articleNo: '',
-  sizePricing: [{ size: 'S', price: 0, originalPrice: 0 }, { size: 'M', price: 0, originalPrice: 0 }, { size: 'L', price: 0, originalPrice: 0 }],
-};
-const createSlug = (n: string) =>
-  n.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
-
-/* ════ sub-components ════ */
-
-const StatCard = ({ icon: Icon, label, value, sub, gradient }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string; gradient: string;
-}) => (
-  <div className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-md ${gradient}`}>
-    <div className="flex items-center justify-between">
-      <div><p className="text-sm font-medium text-white/70">{label}</p>
-        <p className="mt-1 text-3xl font-bold">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-white/60">{sub}</p>}
-      </div>
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20"><Icon className="h-6 w-6" /></div>
-    </div>
-    <div className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10" />
-  </div>
-);
+type Tab = 'dashboard' | 'products' | 'orders' | 'marketing' | 'content' | 'reviews' | 'settings';
 
 const SL = ({ children }: { children: React.ReactNode }) => (
-  <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{children}</p>
+  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{children}</p>
 );
-
-const StringListEditor = ({ items, onChange, placeholder }: { items: string[]; onChange: (v: string[]) => void; placeholder: string }) => {
-  const [draft, setDraft] = useState('');
-  const add = () => { const t = draft.trim(); if (t && !items.includes(t)) onChange([...items, t]); setDraft(''); };
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} placeholder={placeholder} className="h-8 text-sm" />
-        <Button type="button" size="sm" variant="outline" onClick={add} className="h-8 shrink-0"><Plus className="h-3.5 w-3.5" /></Button>
-      </div>
-      {items.length > 0 && (
-        <ul className="space-y-1">{items.map((item, i) => (
-          <li key={i} className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-1.5 text-sm">
-            <span className="truncate">{item}</span>
-            <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))} className="ml-2 text-muted-foreground hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
-          </li>
-        ))}</ul>
-      )}
-    </div>
-  );
-};
-
-const Lightbox = ({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) => {
-  const [cur, setCur] = useState(startIndex);
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative flex max-h-screen max-w-4xl flex-col items-center p-4" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute right-0 top-0 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"><X className="h-5 w-5" /></button>
-        <img src={images[cur]} alt="" className="max-h-[75vh] max-w-full rounded-xl object-contain shadow-2xl" />
-        {images.length > 1 && (
-          <div className="mt-4 flex items-center gap-2">
-            <button onClick={() => setCur((c) => (c - 1 + images.length) % images.length)} className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">← Prev</button>
-            <span className="text-sm text-white/60">{cur + 1} / {images.length}</span>
-            <button onClick={() => setCur((c) => (c + 1) % images.length)} className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">Next →</button>
-          </div>
-        )}
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {images.map((img, i) => (
-            <button key={i} onClick={() => setCur(i)} className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition ${i === cur ? 'border-violet-400' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-              <img src={img} alt="" className="h-full w-full object-cover" />
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 /* ════ main ════ */
 
 const Admin = () => {
-  const { products, addProduct, updateProduct, deleteProduct, refreshProducts, isLoading } = useProducts();
+  const { products, refreshProducts } = useProducts();
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const formRef = useRef<HTMLDivElement>(null);
 
-  /* tabs */
-  const [tab, setTab] = useState<Tab>('products');
-
-  /* form */
-  const [form, setForm] = useState<Product>(emptyProduct);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [customSize, setCustomSize] = useState('');
-  const [newColorName, setNewColorName] = useState('');
-  const [newColorValue, setNewColorValue] = useState('#000000');
-  const [newTag, setNewTag] = useState('');
-
-  /* list */
-  const [search, setSearch] = useState('');
-  const [filterTab, setFilterTab] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-
-  /* ui */
-  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [requestError, setRequestError] = useState<string | null>(null);
+  /* tabs & ui state */
+  const [tab, setTab] = useState<Tab>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  /* activity log */
-  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
-  const logActivity = (msg: string, type: ActivityEntry['type'] = 'info') => {
-    setActivityLog((prev) => [{ id: Date.now(), msg, time: new Date(), type }, ...prev].slice(0, 50));
-  };
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'orders', label: 'Orders', icon: ShoppingBag },
+    { id: 'products', label: 'Products', icon: Package },
+    { id: 'marketing', label: 'Marketing', icon: Star },
+    { id: 'content', label: 'Content', icon: Pencil },
+    { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
 
-  const isEditMode = Boolean(editingId);
-  const showSuccess = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3500); };
-  const handleLogout = () => { logout(); navigate('/admin/login'); };
+  /* data */
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  /* stats */
-  const stats = useMemo(() => ({
-    total: products.length,
-    inStock: products.filter((p) => p.inStock).length,
-    outOfStock: products.filter((p) => !p.inStock).length,
-    totalValue: products.reduce((s, p) => s + (p.sizePricing?.find(sp => sp.size === 'S')?.price || p.price), 0),
-    byCategory: {
-      summer: products.filter((p) => p.category === 'summer').length,
-      'semi-winter': products.filter((p) => p.category === 'semi-winter').length,
-      winter: products.filter((p) => p.category === 'winter').length,
-    },
-  }), [products]);
-
-  /* filtered list */
-  const displayed = useMemo(() => {
-    let list = products.filter((p) => {
-      if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (filterTab === 'instock') return p.inStock;
-      if (filterTab === 'outofstock') return !p.inStock;
-      if (filterTab !== 'all') return p.category === filterTab;
-      return true;
-    });
-    if (sortBy === 'price-asc') list = [...list].sort((a, b) => a.price - b.price);
-    else if (sortBy === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);
-    else if (sortBy === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [products, search, filterTab, sortBy]);
-
-  const allChecked = displayed.length > 0 && displayed.every((p) => selected.has(p.id));
-  const toggleAll = () => {
-    if (allChecked) setSelected((s) => { const n = new Set(s); displayed.forEach((p) => n.delete(p.id)); return n; });
-    else setSelected((s) => { const n = new Set(s); displayed.forEach((p) => n.add(p.id)); return n; });
-  };
-
-  const updateForm = <K extends keyof Product>(field: K, value: Product[K]) => setForm((prev) => ({ ...prev, [field]: value }));
-  const resetForm = () => { setForm(emptyProduct); setEditingId(null); setCustomSize(''); };
-  const toggleSize = (size: string) => updateForm('sizes', form.sizes.includes(size) ? form.sizes.filter((s) => s !== size) : [...form.sizes, size]);
-  const addCustomSize = () => { const s = customSize.trim().toUpperCase(); if (s && !form.sizes.includes(s)) updateForm('sizes', [...form.sizes, s]); setCustomSize(''); };
-  const addColor = () => { const name = newColorName.trim() || newColorValue; if (!form.colors.some((c) => c.value === newColorValue)) updateForm('colors', [...form.colors, { name, value: newColorValue, images: [] }]); setNewColorName(''); setNewColorValue('#000000'); };
-  const addTag = () => { const t = newTag.trim().toLowerCase(); if (t && !(form.tags ?? []).includes(t)) updateForm('tags', [...(form.tags ?? []), t]); setNewTag(''); };
-
-  /* quick stock toggle */
-  const handleQuickStockToggle = async (product: Product) => {
-    const updated = { ...product, inStock: !product.inStock };
-    try { await updateProduct(updated); logActivity(`Stock toggled: "${product.name}" → ${updated.inStock ? 'In Stock' : 'Out of Stock'}`, 'edit'); showSuccess(`"${product.name}" stock updated`); }
-    catch { setRequestError('Failed to update stock'); }
-  };
-
-  /* image upload helper */
-  const handleUpload = async (files: FileList | null): Promise<string[]> => {
-    if (!files?.length) return [];
-    setIsUploading(true); setRequestError(null);
-    try {
-      const headers = authHeaders();
-      const urls = await Promise.all(Array.from(files).map((file) =>
-        new Promise<string>(async (resolve, reject) => {
-          try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
-              method: 'POST',
-              headers: { ...headers },
-              body: formData,
-            });
-            if (res.status === 401) { handleLogout(); throw new Error("Session expired. Please log in again."); }
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error || json.details || 'Upload failed');
-            resolve(json.url);
-          } catch (err) { reject(err); }
-        })
-      ));
-      return urls;
-    } catch (err: any) {
-      setRequestError(err.message || 'Upload failed');
-      return [];
-    } finally {
-      setIsUploading(false);
+  useEffect(() => {
+    if (tab === 'dashboard' || tab === 'orders') {
+      fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/orders`, { headers: authHeaders() })
+        .then(r => r.json())
+        .then(data => setOrders(data.items || []))
+        .catch(err => console.error("Admin order fetch error:", err));
     }
-  };
+    // Auto-close mobile sidebar on tab change
+    setIsMobileMenuOpen(false);
+  }, [tab]);
 
-  /* global image upload */
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const urls = await handleUpload(event.target.files);
-    if (urls.length > 0) {
-      setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
-      showSuccess(`Uploaded ${urls.length} images`);
-    }
-    event.target.value = '';
-  };
-
-  /* color-specific image upload */
-  const handleColorImageUpload = async (colorIdx: number, files: FileList | null) => {
-    const urls = await handleUpload(files);
-    if (urls.length > 0) {
-      const updatedColors = [...form.colors];
-      updatedColors[colorIdx] = {
-        ...updatedColors[colorIdx],
-        images: [...(updatedColors[colorIdx].images || []), ...urls]
-      };
-      updateForm('colors', updatedColors);
-      showSuccess(`Uploaded ${urls.length} images for color`);
-    }
-  };
-
-  const handleImageRemove = async (imageUrl: string, index: number) => {
-    setForm((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
-
-    if (imageUrl.includes('cloudinary.com')) {
-      try {
-        await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders()
-          },
-          body: JSON.stringify({ url: imageUrl })
-        });
-      } catch {
-        /* ignore */
-      }
-    }
-  };
-
-  const handleImageDrop = (dropIndex: number) => {
-    if (dragIndex === null || dragIndex === dropIndex) return;
-    setForm((prev) => { const imgs = [...prev.images]; const [d] = imgs.splice(dragIndex, 1); imgs.splice(dropIndex, 0, d); return { ...prev, images: imgs }; });
-    setDragIndex(null);
-  };
-
-  /* submit */
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const id = editingId ?? `${Date.now()}`;
-    const normalizedName = form.name.trim();
-    // Default base price to size 'S' price if available
-    const sPrice = form.sizePricing?.find(sp => sp.size.toUpperCase() === 'S');
-    const basePrice = sPrice?.price || (form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].price : 0);
-    const baseOriginalPrice = sPrice?.originalPrice || (form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].originalPrice : undefined);
-
-    const payload: Product = { ...form, id, name: normalizedName, slug: form.slug.trim() || createSlug(normalizedName), price: basePrice, originalPrice: baseOriginalPrice, description: form.description.trim(), shortDescription: form.shortDescription.trim(), material: form.material.trim(), images: form.images.filter(Boolean), sizes: form.sizes.filter(Boolean), careInstructions: form.careInstructions.filter(Boolean), features: form.features.filter(Boolean) };
-    try {
-      setRequestError(null);
-      if (editingId) { await updateProduct(payload); showSuccess('Product updated!'); logActivity(`Edited: "${normalizedName}"`, 'edit'); }
-      else { await addProduct(payload); showSuccess('Product added!'); logActivity(`Added: "${normalizedName}"`, 'add'); }
-      resetForm();
-    } catch (err) { setRequestError(err instanceof Error ? err.message : 'Failed to save'); }
-  };
-
-  const handleDeleteConfirm = async (id: string, name: string) => {
-    try { await deleteProduct(id); showSuccess('Deleted.'); logActivity(`Deleted: "${name}"`, 'delete'); }
-    catch (err) { setRequestError(err instanceof Error ? err.message : 'Failed to delete'); }
-    setConfirmDeleteId(null);
-  };
-
-  const handleBulkDelete = async () => {
-    const names = products.filter((p) => selected.has(p.id)).map((p) => p.name);
-    try { await Promise.all([...selected].map((id) => deleteProduct(id))); showSuccess(`Deleted ${selected.size} products.`); logActivity(`Bulk deleted ${selected.size} products`, 'bulk'); setSelected(new Set()); }
-    catch { setRequestError('Some deletes failed'); }
-    setConfirmBulkDelete(false);
-  };
-
-  const handleBulkStock = async (inStock: boolean) => {
-    const targets = products.filter((p) => selected.has(p.id));
-    try { await Promise.all(targets.map((p) => updateProduct({ ...p, inStock }))); showSuccess(`${targets.length} products updated.`); logActivity(`Bulk stock: ${targets.length} marked ${inStock ? 'In Stock' : 'Out of Stock'}`, 'bulk'); setSelected(new Set()); }
-    catch { setRequestError('Bulk update failed'); }
-  };
-
-  const handleDuplicate = async (product: Product) => {
-    try { await addProduct({ ...product, id: '', name: `Copy of ${product.name}`, slug: createSlug(`copy of ${product.name}`) }); showSuccess(`Duplicated "${product.name}"`); logActivity(`Duplicated: "${product.name}"`, 'add'); }
-    catch { setRequestError('Duplicate failed'); }
-  };
-
-  const handleExportCSV = () => {
-    const headers = ['Name', 'Slug', 'Category', 'Price', 'Original Price', 'In Stock', 'Best Seller', 'New', 'Material', 'Sizes', 'Tags'];
-    const rows = products.map((p) => [
-      `"${p.name}"`, p.slug, p.category, p.price, p.originalPrice ?? '', p.inStock ? 'Yes' : 'No', p.isBestSeller ? 'Yes' : 'No', p.isNewProduct ? 'Yes' : 'No', `"${p.material}"`, `"${p.sizes.join(', ')}"`, `"${(p.tags ?? []).join(', ')}"`,
-    ]);
-    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `melini-products-${Date.now()}.csv`; a.click();
-    showSuccess('CSV exported!'); logActivity('Exported product CSV', 'info');
-  };
+  const showSuccess = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000); };
+  const handleLogout = () => { logout(); navigate('/admin-login'); };
 
   const handleSync = async () => {
     setIsSyncing(true);
     try {
       await refreshProducts();
-      showSuccess('Synced from DB!');
-      logActivity('Manual DB sync triggered', 'info');
-    } catch (err: any) {
-      if (err?.message?.includes('401') || err?.message?.toLowerCase().includes('authorized')) {
-        handleLogout();
-      }
-      setRequestError('Sync failed');
+      showSuccess('Database Synced');
+    } catch {
+      // Error handled by context/toast
     } finally {
       setIsSyncing(false);
     }
   };
 
-  /* ════ render ════ */
   return (
-    <div className="min-h-screen bg-muted/30 pt-20">
-      {lightbox && <Lightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />}
-
-      {/* header */}
-      <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-6 py-8 text-white shadow-lg">
-        <div className="mx-auto max-w-7xl flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-            <p className="mt-1 text-white/70 text-sm">Manage your MELINI store</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={handleExportCSV} className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20"><Download className="h-4 w-4" /> Export CSV</button>
-            <button onClick={handleSync} disabled={isSyncing} className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20 disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />{isSyncing ? 'Syncing…' : 'Sync DB'}</button>
-            <button onClick={handleLogout} className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20"><LogOut className="h-4 w-4" /> Logout</button>
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 selection:bg-violet-100 selection:text-violet-900">
+      {/* Dynamic Success Toast */}
+      {successMsg && (
+        <div className="fixed bottom-10 left-1/2 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-3 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold text-white shadow-2xl ring-1 ring-white/10">
+            <CheckCircle className="h-5 w-5 text-emerald-400" /> {successMsg}
           </div>
         </div>
+      )}
 
-        {/* ── tab nav ── */}
-        <div className="mx-auto mt-6 max-w-7xl flex gap-1">
-          {([
-            { id: 'products', icon: Package, label: 'Products' },
-            { id: 'orders', icon: ShoppingBag, label: 'Orders' },
-            { id: 'settings', icon: Settings, label: 'Settings' },
-            { id: 'activity', icon: Clock, label: 'Activity Log' },
-          ] as { id: Tab; icon: React.ElementType; label: string }[]).map(({ id, icon: Icon, label }) => (
-            <button key={id} onClick={() => setTab(id)}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${tab === id ? 'bg-white text-violet-700 shadow' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
-              <Icon className="h-4 w-4" /> {label}
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-md lg:hidden transition-all duration-300"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Main Sidebar */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200 bg-white transition-all duration-500 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex h-24 items-center justify-between px-8">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-600 font-display text-xl font-black text-white shadow-xl shadow-violet-200 group-hover:scale-105 transition-transform">M</div>
+            <span className="text-2xl font-black tracking-tighter text-slate-800">MELINI</span>
+          </Link>
+          <button className="lg:hidden p-2 text-slate-400 hover:text-slate-900" onClick={() => setIsMobileMenuOpen(false)}><X className="h-6 w-6" /></button>
+        </div>
+
+        <nav className="flex flex-col gap-1.5 p-6">
+          <SL>Control Panel</SL>
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id as Tab)}
+                className={cn(
+                  "group flex items-center gap-4 rounded-2xl px-5 py-4 text-sm font-bold transition-all duration-300",
+                  isActive
+                    ? "bg-violet-600 text-white shadow-xl shadow-violet-300/50"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                )}
+              >
+                <Icon className={cn("h-5 w-5 transition-colors", isActive ? "text-white" : "text-slate-400 group-hover:text-violet-500")} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="absolute bottom-0 w-full p-6">
+          <div className="rounded-3xl bg-slate-50 p-6">
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-100/50 transition-colors"
+            >
+              <LogOut className="h-5 w-5" /> Sign Out
             </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
-
-        {/* ── ORDERS TAB ── */}
-        {tab === 'orders' && <OrdersTab />}
-
-        {/* ── SETTINGS TAB ── */}
-        {tab === 'settings' && <SettingsTab />}
-
-        {/* ── ACTIVITY LOG TAB ── */}
-        {tab === 'activity' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Activity Log</h2>
-              {activityLog.length > 0 && <button onClick={() => setActivityLog([])} className="text-xs text-muted-foreground hover:text-destructive transition-colors">Clear all</button>}
-            </div>
-            {activityLog.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border bg-card py-20 text-muted-foreground">
-                <Clock className="mb-3 h-10 w-10 opacity-30" />
-                <p className="text-sm">No activity yet — actions you take will appear here</p>
-              </div>
-            ) : (
-              <Card className="overflow-hidden shadow-sm">
-                <CardContent className="p-0">
-                  <ul className="divide-y max-h-[600px] overflow-y-auto">
-                    {activityLog.map((entry) => {
-                      const colors = { add: 'text-emerald-600', edit: 'text-blue-600', delete: 'text-red-500', bulk: 'text-violet-600', info: 'text-muted-foreground' };
-                      const icons = { add: '✅', edit: '✏️', delete: '🗑️', bulk: '📦', info: 'ℹ️' };
-                      return (
-                        <li key={entry.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
-                          <span className="text-base">{icons[entry.type]}</span>
-                          <span className={`flex-1 text-sm ${colors[entry.type]}`}>{entry.msg}</span>
-                          <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                            {entry.time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
           </div>
-        )}
+        </div>
+      </aside>
 
-        {/* ── PRODUCTS TAB ── */}
-        {tab === 'products' && (
-          <>
-            {/* stats */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard icon={Package} label="Total Products" value={stats.total} gradient="bg-gradient-to-br from-violet-500 to-purple-700" />
-              <StatCard icon={CheckCircle} label="In Stock" value={stats.inStock} gradient="bg-gradient-to-br from-emerald-500 to-green-700" />
-              <StatCard icon={XCircle} label="Out of Stock" value={stats.outOfStock} gradient="bg-gradient-to-br from-rose-500 to-red-700" />
-              <StatCard icon={Star} label="Catalogue Value" value={`₹${stats.totalValue.toLocaleString('en-IN')}`} sub="sum of all prices" gradient="bg-gradient-to-br from-amber-500 to-orange-600" />
+      {/* Main Content Area */}
+      <div className="flex-1 lg:pl-72">
+        <header className="sticky top-0 z-30 flex h-24 items-center justify-between bg-white/80 px-8 backdrop-blur-2xl lg:px-14 border-b border-slate-100">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-3 text-slate-500 hover:bg-slate-100 rounded-2xl transition-colors"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-black text-slate-800 capitalize tracking-tight">{tab}</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Admin Management System</p>
             </div>
+          </div>
 
-            {/* category bars */}
-            <Card className="shadow-sm">
-              <CardContent className="pt-5">
-                <SL>Category Breakdown</SL>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {(['summer', 'semi-winter', 'winter'] as const).map((cat) => {
-                    const count = stats.byCategory[cat]; const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
-                    return (
-                      <div key={cat} className="space-y-1.5">
-                        <div className="flex justify-between text-sm"><span className="capitalize font-medium">{cat === 'semi-winter' ? 'Semi-Winter' : cat.charAt(0).toUpperCase() + cat.slice(1)}</span><span className="text-muted-foreground">{count} ({pct}%)</span></div>
-                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${cat === 'summer' ? 'bg-amber-400' : cat === 'semi-winter' ? 'bg-blue-400' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }} /></div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* toasts */}
-            {successMsg && <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"><CheckCircle className="h-4 w-4 shrink-0" /> {successMsg}</div>}
-            {requestError && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertTriangle className="h-4 w-4 shrink-0" /> {requestError}<button onClick={() => setRequestError(null)} className="ml-auto"><X className="h-4 w-4" /></button></div>}
-
-            {/* bulk bar */}
-            {selected.size > 0 && (
-              <div className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 flex-wrap">
-                <span className="text-sm font-medium text-violet-700">{selected.size} selected</span>
-                <div className="flex gap-2 ml-auto flex-wrap">
-                  <Button type="button" size="sm" variant="outline" onClick={() => handleBulkStock(true)} className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50">✅ In Stock</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => handleBulkStock(false)} className="h-8 text-xs border-red-300 text-red-700 hover:bg-red-50">❌ Out of Stock</Button>
-                  {confirmBulkDelete ? (
-                    <><span className="text-xs text-red-700 self-center font-medium">Delete {selected.size}?</span><Button type="button" size="sm" variant="destructive" onClick={handleBulkDelete} className="h-8 text-xs">Yes, Delete</Button><Button type="button" size="sm" variant="outline" onClick={() => setConfirmBulkDelete(false)} className="h-8 text-xs">Cancel</Button></>
-                  ) : (
-                    <Button type="button" size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)} className="h-8 text-xs"><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete</Button>
-                  )}
-                  <button onClick={() => setSelected(new Set())} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
-                </div>
-              </div>
-            )}
-
-            {/* main grid */}
-            <div className="grid gap-6 lg:grid-cols-[1fr_440px]">
-
-              {/* product list */}
-              <Card className="overflow-hidden shadow-sm">
-                <CardHeader className="border-b bg-background space-y-3 pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Products <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">{displayed.length}</span></CardTitle>
-                    {isLoading && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />Syncing…</span>}
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm" /></div>
-                    <div className="relative"><select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-9 appearance-none rounded-md border bg-background pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="newest">Newest</option><option value="price-asc">Price ↑</option><option value="price-desc">Price ↓</option><option value="name">Name A–Z</option></select><ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /></div>
-                  </div>
-                  <div className="flex gap-1 overflow-x-auto pb-0.5">{FILTER_TABS.map((t) => (<button key={t.value} onClick={() => setFilterTab(t.value)} className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterTab === t.value ? 'bg-violet-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>{t.label}</button>))}</div>
-                </CardHeader>
-                <CardContent className="max-h-[580px] overflow-y-auto p-0">
-                  {displayed.length > 0 && <div className="flex items-center gap-3 border-b bg-muted/20 px-4 py-2"><input type="checkbox" checked={allChecked} onChange={toggleAll} className="h-4 w-4 rounded accent-violet-600 cursor-pointer" /><span className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} of ${displayed.length} selected` : 'Select all'}</span></div>}
-                  {displayed.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground"><Package className="mb-3 h-10 w-10 opacity-30" /><p className="text-sm">{search ? 'No match' : 'No products yet'}</p></div>
-                  ) : (
-                    <ul className="divide-y">
-                      {displayed.map((product) => (
-                        <li key={product.id} className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/20 ${selected.has(product.id) ? 'bg-violet-50' : ''}`}>
-                          <input type="checkbox" checked={selected.has(product.id)} onChange={() => setSelected((s) => { const n = new Set(s); n.has(product.id) ? n.delete(product.id) : n.add(product.id); return n; })} className="h-4 w-4 shrink-0 rounded accent-violet-600 cursor-pointer" />
-                          <button type="button" onClick={() => product.images.length > 0 && setLightbox({ images: product.images, index: 0 })} className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border bg-muted hover:opacity-90 transition">
-                            {product.images[0] ? <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Package className="h-5 w-5 text-muted-foreground/40" /></div>}
-                            {product.images.length > 1 && <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[9px] font-bold text-white">+{product.images.length - 1}</span>}
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{product.name}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-700'}`}>{product.category}</span>
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${product.inStock ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{product.inStock ? '● In Stock' : '● Out of Stock'}</span>
-                              {product.isBestSeller && <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"><Star className="h-2.5 w-2.5 fill-amber-500 stroke-amber-500" /> Best Seller</span>}
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {product.sizePricing && product.sizePricing.length > 0
-                                  ? `From ₹${Math.min(...product.sizePricing.map(sp => sp.price)).toLocaleString('en-IN')}`
-                                  : `₹${product.price.toLocaleString('en-IN')}`}
-                              </span>
-                            </div>
-                          </div>
-                          <Switch checked={product.inStock} onCheckedChange={() => handleQuickStockToggle(product)} className="scale-75 shrink-0" />
-                          <div className="flex shrink-0 items-center gap-0.5">
-                            {confirmDeleteId === product.id ? (
-                              <div className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1">
-                                <span className="text-[11px] text-red-700 font-medium mr-1">Delete?</span>
-                                <button onClick={() => handleDeleteConfirm(product.id, product.name)} className="rounded bg-red-600 px-2 py-0.5 text-[11px] text-white font-semibold hover:bg-red-700">Yes</button>
-                                <button onClick={() => setConfirmDeleteId(null)} className="rounded border px-2 py-0.5 text-[11px] font-medium hover:bg-muted">No</button>
-                              </div>
-                            ) : (
-                              <>
-                                <a href={`/product/${product.slug}`} target="_blank" rel="noopener noreferrer" title="Open in Shop" className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"><ExternalLink className="h-3.5 w-3.5" /></a>
-                                {product.images.length > 0 && <button type="button" onClick={() => setLightbox({ images: product.images, index: 0 })} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-violet-600 hover:bg-violet-50 transition-colors"><ImageIcon className="h-3.5 w-3.5" /></button>}
-                                <button type="button" onClick={() => handleDuplicate(product)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-violet-600 hover:bg-violet-50 transition-colors"><Copy className="h-3.5 w-3.5" /></button>
-                                <button type="button" onClick={() => { setForm(product); setEditingId(product.id); formRef.current?.scrollIntoView({ behavior: 'smooth' }); }} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
-                                <button type="button" onClick={() => setConfirmDeleteId(product.id)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-                              </>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* form */}
-              <div ref={formRef}>
-                <Card className="shadow-sm sticky top-24">
-                  <CardHeader className="border-b pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">{isEditMode ? <><Save className="h-4 w-4 text-primary" /> Edit Product</> : <><Plus className="h-4 w-4 text-primary" /> Add New Product</>}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="max-h-[calc(100vh-280px)] overflow-y-auto pt-5">
-                    <form className="space-y-6" onSubmit={handleSubmit}>
-
-                      <div><SL>Basic Info</SL>
-                        <div className="space-y-3">
-                          <div className="grid gap-3 grid-cols-2">
-                            <div><Label className="mb-1.5 block text-xs">Name *</Label><Input value={form.name} onChange={(e) => updateForm('name', e.target.value)} required placeholder="e.g. Linen Kurta" /></div>
-                            <div><Label className="mb-1.5 block text-xs">Category</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.category} onChange={(e) => updateForm('category', e.target.value as Product['category'])}><option value="summer">☀️ Summer</option><option value="semi-winter">🍂 Semi-Winter</option><option value="winter">❄️ Winter</option></select></div>
-                          </div>
-                          <div><Label className="mb-1.5 block text-xs">Slug (auto if blank)</Label><Input value={form.slug} onChange={(e) => updateForm('slug', e.target.value)} placeholder={form.name ? createSlug(form.name) : 'auto'} /></div>
-                          <div><Label className="mb-1.5 block text-xs">Short Description *</Label><Input value={form.shortDescription} onChange={(e) => updateForm('shortDescription', e.target.value)} required placeholder="One-line summary" /></div>
-                          <div><Label className="mb-1.5 block text-xs">Full Description *</Label><Textarea value={form.description} onChange={(e) => updateForm('description', e.target.value)} required rows={3} placeholder="Detailed description…" /></div>
-                          <div><Label className="mb-1.5 block text-xs">Material *</Label><Input value={form.material} onChange={(e) => updateForm('material', e.target.value)} required placeholder="e.g. 100% Cotton" /></div>
-                        </div>
-                      </div>
-
-                      {/* Removed global Pricing section */}
-
-                      {/* Global Images section removed - using Color-Specific images instead */}
-
-                      {/* Article Number */}
-                      <div>
-                        <SL>Article No</SL>
-                        <Input
-                          value={form.articleNo ?? ''}
-                          onChange={(e) => updateForm('articleNo', e.target.value)}
-                          placeholder="e.g. MLN-001"
-                          className="font-mono text-sm"
-                        />
-                        <p className="mt-1 text-[10px] text-muted-foreground">Unique article / SKU number. Enter manually.</p>
-                      </div>
-
-                      {/* Sizes + per-size pricing */}
-                      {/* Sizes & Prices Section */}
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <SL>Sizes &amp; Prices</SL>
-                          <div className="flex gap-1.5">
-                            {PRESET_SIZES.map((size) => (
-                              <button
-                                key={size}
-                                type="button"
-                                onClick={() => {
-                                  if (form.sizes.includes(size)) {
-                                    updateForm('sizes', form.sizes.filter((s) => s !== size));
-                                    updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
-                                  } else {
-                                    updateForm('sizes', [...form.sizes, size]);
-                                    const defaultPrice = form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].price : 0;
-                                    const defaultOrig = form.sizePricing && form.sizePricing.length > 0 ? form.sizePricing[0].originalPrice : 0;
-                                    updateForm('sizePricing', [...(form.sizePricing ?? []), { size, price: defaultPrice, originalPrice: defaultOrig }]);
-                                  }
-                                }}
-                                className={`h-8 min-w-[32px] rounded-md border px-2 text-[10px] font-bold transition-all ${form.sizes.includes(size)
-                                  ? 'border-violet-600 bg-violet-600 text-white'
-                                  : 'border-border bg-background text-muted-foreground hover:border-violet-400'
-                                  }`}
-                              >
-                                {size}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Custom size input */}
-                        <div className="flex gap-2 mb-4">
-                          <Input
-                            value={customSize}
-                            onChange={(e) => setCustomSize(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const s = customSize.trim().toUpperCase();
-                                if (s && !form.sizes.includes(s)) {
-                                  updateForm('sizes', [...form.sizes, s]);
-                                  updateForm('sizePricing', [...(form.sizePricing ?? []), { size: s, price: 0, originalPrice: 0 }]);
-                                  setCustomSize('');
-                                }
-                              }
-                            }}
-                            placeholder="Add custom size (e.g. 3XL)"
-                            className="h-9 text-sm"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              const s = customSize.trim().toUpperCase();
-                              if (s && !form.sizes.includes(s)) {
-                                updateForm('sizes', [...form.sizes, s]);
-                                updateForm('sizePricing', [...(form.sizePricing ?? []), { size: s, price: 0, originalPrice: 0 }]);
-                                setCustomSize('');
-                              }
-                            }}
-                            className="h-9"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Per-size pricing cards */}
-                        <div className="space-y-4">
-                          {form.sizes.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-muted-foreground">
-                              <p className="text-xs">No sizes selected. Click presets above or add a custom size.</p>
-                            </div>
-                          ) : (
-                            form.sizes.map((size) => {
-                              const sp = (form.sizePricing ?? []).find((x) => x.size === size);
-                              return (
-                                <div key={size} className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                                  <div className="flex items-center justify-between bg-muted/30 px-4 py-2 border-b">
-                                    <span className="text-xs font-bold uppercase tracking-widest text-violet-700">{size}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        updateForm('sizes', form.sizes.filter((s) => s !== size));
-                                        updateForm('sizePricing', (form.sizePricing ?? []).filter((sp) => sp.size !== size));
-                                      }}
-                                      className="rounded-full p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                  <div className="p-4 grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Price (₹) *</Label>
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        value={sp?.price ?? 0}
-                                        onChange={(e) => {
-                                          const newPrice = Number(e.target.value);
-                                          updateForm('sizePricing', (form.sizePricing ?? []).map(x => x.size === size ? { ...x, price: newPrice } : x));
-                                        }}
-                                        className="h-9 font-medium"
-                                        placeholder="0"
-                                      />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Original Price (₹)</Label>
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        value={sp?.originalPrice ?? 0}
-                                        onChange={(e) => {
-                                          const newOrigPrice = Number(e.target.value);
-                                          updateForm('sizePricing', (form.sizePricing ?? []).map(x => x.size === size ? { ...x, originalPrice: newOrigPrice } : x));
-                                        }}
-                                        className="h-9 text-muted-foreground"
-                                        placeholder="Strikethrough"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                        <p className="mt-3 text-[10px] text-muted-foreground flex gap-1.5 items-center">
-                          <CheckCircle className="h-3 w-3 text-emerald-500" />
-                          Each size can have its own price. The lowest price will be shown in the shop.
-                        </p>
-                      </div>
-
-                      <div><SL>Colors &amp; Color-Specific Images</SL>
-                        <div className="flex gap-2 mb-4">
-                          <input type="color" value={newColorValue} onChange={(e) => setNewColorValue(e.target.value)} className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1" />
-                          <Input value={newColorName} onChange={(e) => setNewColorName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addColor(); } }} placeholder="Color name (e.g. Royal Blue)" className="h-10 text-sm" />
-                          <Button type="button" variant="outline" onClick={addColor} className="h-10 shrink-0"><Plus className="h-4 w-4" /></Button>
-                        </div>
-
-                        {form.colors.length > 0 && (
-                          <div className="space-y-4">
-                            {form.colors.map((color, i) => (
-                              <div key={i} className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                                <div className="flex items-center justify-between bg-muted/30 px-4 py-2 border-b">
-                                  <div className="flex items-center gap-2">
-                                    <span className="h-4 w-4 rounded-full border shadow-sm" style={{ backgroundColor: color.value }} />
-                                    <span className="text-xs font-bold uppercase tracking-widest text-violet-700">{color.name}</span>
-                                  </div>
-                                  <button type="button" onClick={() => updateForm('colors', form.colors.filter((_, idx) => idx !== i))} className="rounded-full p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors"><X className="h-3.5 w-3.5" /></button>
-                                </div>
-                                <div className="p-4">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <label className={`flex h-9 min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 bg-violet-50/50 px-3 text-[10px] font-bold uppercase tracking-wider text-violet-600 transition-colors hover:bg-violet-100 ${isUploading ? 'pointer-events-none opacity-60' : ''}`}>
-                                      {isUploading ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" /> : <Upload className="h-3 w-3" />}
-                                      Upload Images
-                                      <input type="file" accept="image/*" multiple onChange={(e) => handleColorImageUpload(i, e.target.files)} className="hidden" disabled={isUploading} />
-                                    </label>
-                                    <p className="text-[10px] text-muted-foreground italic truncate">Images specific to this color only.</p>
-                                  </div>
-
-                                  {(color.images ?? []).length > 0 ? (
-                                    <div className="grid grid-cols-5 gap-2">
-                                      {(color.images ?? []).map((img, imgIdx) => (
-                                        <div key={imgIdx} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
-                                          <img src={img} alt="" className="h-full w-full object-cover" />
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const updatedColors = [...form.colors];
-                                              updatedColors[i].images = (updatedColors[i].images ?? []).filter((_, idx) => idx !== imgIdx);
-                                              updateForm('colors', updatedColors);
-                                            }}
-                                            className="absolute right-0.5 top-0.5 rounded bg-black/60 p-0.5 text-white opacity-0 transition group-hover:opacity-100"
-                                          >
-                                            <X className="h-2.5 w-2.5" />
-                                          </button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="rounded-lg border border-dashed py-3 text-center text-[10px] text-muted-foreground">
-                                      No images for this color.
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div><SL>Care Instructions</SL><StringListEditor items={form.careInstructions} onChange={(v) => updateForm('careInstructions', v)} placeholder="e.g. Machine wash cold" /></div>
-                      <div><SL>Features</SL><StringListEditor items={form.features} onChange={(v) => updateForm('features', v)} placeholder="e.g. Breathable fabric" /></div>
-
-                      {/* SEO section */}
-                      <div><SL>SEO</SL>
-                        <div className="space-y-3">
-                          <div><Label className="mb-1.5 block text-xs">Meta Title <span className="text-muted-foreground">(60 chars max)</span></Label><Input value={form.metaTitle ?? ''} onChange={(e) => updateForm('metaTitle', e.target.value)} maxLength={60} placeholder="e.g. Linen Kurta for Men | MELINI" />{form.metaTitle && <p className="mt-0.5 text-[10px] text-muted-foreground">{form.metaTitle.length}/60</p>}</div>
-                          <div><Label className="mb-1.5 block text-xs">Meta Description <span className="text-muted-foreground">(160 chars max)</span></Label><Textarea value={form.metaDescription ?? ''} onChange={(e) => updateForm('metaDescription', e.target.value)} maxLength={160} rows={2} placeholder="Short description for search engines…" />{form.metaDescription && <p className="mt-0.5 text-[10px] text-muted-foreground">{form.metaDescription.length}/160</p>}</div>
-                          <div><Label className="mb-1.5 block text-xs">Tags / Keywords</Label>
-                            <div className="flex gap-2 mb-2"><Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} placeholder="e.g. kurta" className="h-8 text-sm" /><Button type="button" variant="outline" size="sm" onClick={addTag} className="h-8 shrink-0"><Plus className="h-3.5 w-3.5" /></Button></div>
-                            {(form.tags ?? []).length > 0 && <div className="flex flex-wrap gap-1.5">{(form.tags ?? []).map((tag) => (<span key={tag} className="flex items-center gap-1 rounded-full border bg-violet-50 px-2.5 py-0.5 text-xs text-violet-700">#{tag}<button type="button" onClick={() => updateForm('tags', (form.tags ?? []).filter((t) => t !== tag))} className="hover:text-destructive"><X className="h-3 w-3" /></button></span>))}</div>}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div><SL>Status & Flags</SL>
-                        <div className="space-y-2">
-                          {([
-                            { id: 'in-stock', label: 'In Stock', field: 'inStock', icon: '🟢' },
-                            { id: 'is-new', label: 'Mark as New', field: 'isNewProduct', icon: '✨' },
-                            { id: 'is-best', label: 'Best Seller', field: 'isBestSeller', icon: '⭐' },
-                          ] as { id: string; label: string; field: keyof Product; icon: string }[]).map(({ id, label, field, icon }) => (
-                            <div key={id} className="flex items-center justify-between rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30"><Label htmlFor={id} className="cursor-pointer text-sm"><span className="mr-1.5">{icon}</span>{label}</Label><Switch id={id} checked={Boolean(form[field])} onCheckedChange={(v) => updateForm(field, v)} /></div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 pb-2">
-                        <Button type="submit" className="flex-1 gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
-                          {isEditMode ? <><Save className="h-4 w-4" /> Update Product</> : <><Plus className="h-4 w-4" /> Add Product</>}
-                        </Button>
-                        {isEditMode && <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>}
-                      </div>
-
-                    </form>
-                  </CardContent>
-                </Card>
-              </div>
+          <div className="flex items-center gap-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="hidden h-11 gap-3 rounded-2xl border-slate-200 bg-white px-6 text-xs font-bold uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all sm:flex shadow-sm"
+            >
+              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+              Sync Cloud
+            </Button>
+            <div className="group relative h-12 w-12 cursor-pointer">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-400 opacity-20 group-hover:opacity-40 transition-opacity" />
+              <img
+                src="https://api.dicebear.com/7.x/avataaars/svg?seed=MELINI&backgroundColor=b6e3f4"
+                alt="Admin Avatar"
+                className="relative h-full w-full rounded-2xl border-2 border-white object-cover shadow-sm bg-white"
+              />
             </div>
-          </>
-        )}
+          </div>
+        </header>
+
+        <main className="min-h-[calc(100vh-96px)] p-6 lg:p-14">
+          <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {tab === 'dashboard' && <DashboardTab products={products} orders={orders} />}
+            {tab === 'products' && <ProductsTab />}
+            {tab === 'orders' && <OrdersTab />}
+            {tab === 'marketing' && <MarketingTab />}
+            {tab === 'content' && <ContentTab />}
+            {tab === 'reviews' && <ReviewsTab />}
+            {tab === 'settings' && <SettingsTab />}
+          </div>
+        </main>
       </div>
     </div>
   );

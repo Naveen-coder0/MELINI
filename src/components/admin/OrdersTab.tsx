@@ -1,32 +1,72 @@
 import { useEffect, useState } from 'react';
 import { authHeaders } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Package, ShoppingBag, XCircle, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckCircle, Package, ShoppingBag, XCircle, Clock, Search, Truck, Ban } from 'lucide-react';
 
-interface Order {
-    _id: string;
+export interface Order {
+    id: string; // From toClient() helper
     razorpayOrderId: string;
     razorpayPaymentId?: string;
-    amount: number;
-    currency: string;
-    status: 'created' | 'paid' | 'failed' | 'shipped' | 'delivered';
-    customerName?: string;
-    customerEmail?: string;
-    customerPhone?: string;
-    items: { name: string; price: number; qty: number }[];
+    customer: {
+        id: string;
+        name: string;
+        email: string;
+        phone: string;
+    };
+    shippingAddress: {
+        address: string;
+        city: string;
+        postalCode: string;
+        country: string;
+    };
+    items: {
+        product: string; // Product id
+        name: string;
+        qty: number;
+        image: string;
+        price: number;
+        color?: string;
+        size?: string;
+    }[];
+    paymentMethod: string;
+    paymentResult?: {
+        id: string;
+        status: string;
+        updateTime: string;
+        emailAddress: string;
+    };
+    itemsPrice: number;
+    taxPrice: number;
+    shippingPrice: number;
+    totalPrice: number;
+    isPaid: boolean;
+    paidAt?: string;
+    isDelivered: boolean;
+    deliveredAt?: string;
+    status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+    coupon?: {
+        code: string;
+        discount: number;
+    };
+    notes?: string;
     createdAt: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
-    created: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    shipped: 'bg-blue-50 text-blue-700 border-blue-200',
+    pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    processing: 'bg-blue-50 text-blue-700 border-blue-200',
+    shipped: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     delivered: 'bg-violet-50 text-violet-700 border-violet-200',
-    failed: 'bg-red-50 text-red-600 border-red-200',
+    cancelled: 'bg-red-50 text-red-600 border-red-200',
 };
 
 const STATUS_ICONS: Record<string, React.ElementType> = {
-    created: Clock, paid: CheckCircle, shipped: Package, delivered: ShoppingBag, failed: XCircle,
+    pending: Clock,
+    processing: Package,
+    shipped: Truck,
+    delivered: CheckCircle,
+    cancelled: Ban,
 };
 
 export const OrdersTab = () => {
@@ -34,36 +74,45 @@ export const OrdersTab = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
     const [filter, setFilter] = useState('all');
+    const [search, setSearch] = useState('');
 
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL}/api/admin/orders`, {headers: authHeaders() })
+        const url = `${import.meta.env.VITE_API_URL || ""}/api/admin/orders`;
+        fetch(url, { headers: authHeaders() })
             .then((r) => r.json())
-            .then((data) => setOrders(data.orders || []))
-            .catch(() => { })
+            .then((data) => setOrders(data.items || []))
+            .catch((err) => console.error("Order fetch error:", err))
             .finally(() => setIsLoading(false));
     }, []);
 
     const updateStatus = async (id: string, status: string) => {
         setUpdating(id);
         try {
-            const res = await fetch(`/api/admin/orders/${id}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/orders/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ status }),
             });
             if (res.ok) {
-                setOrders((prev) => prev.map((o) => o._id === id ? { ...o, status: status as Order['status'] } : o));
+                setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status: status as Order['status'] } : o));
             }
-        } catch { /* ignore */ }
+        } catch (err) { console.error("Status update error:", err); }
         setUpdating(null);
     };
 
-    const displayed = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
+    const displayed = orders.filter((o) => {
+        const matchesFilter = filter === 'all' || o.status === filter;
+        const matchesSearch = !search ||
+            (o.customer?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (o.customer?.email || '').toLowerCase().includes(search.toLowerCase()) ||
+            (o.razorpayOrderId || '').toLowerCase().includes(search.toLowerCase());
+        return matchesFilter && matchesSearch;
+    });
+
     const stats = {
         total: orders.length,
-        paid: orders.filter((o) => o.status === 'paid' || o.status === 'shipped' || o.status === 'delivered').length,
-        revenue: orders.filter((o) => o.status === 'paid' || o.status === 'shipped' || o.status === 'delivered')
-            .reduce((s, o) => s + o.amount, 0),
+        paid: orders.filter((o) => o.isPaid).length,
+        revenue: orders.filter((o) => o.isPaid).reduce((s, o) => s + o.totalPrice, 0),
     };
 
     if (isLoading) return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading orders…</div>;
@@ -85,14 +134,24 @@ export const OrdersTab = () => {
                 ))}
             </div>
 
-            {/* filter */}
-            <div className="flex gap-1 overflow-x-auto pb-0.5">
-                {['all', 'created', 'paid', 'shipped', 'delivered', 'failed'].map((f) => (
-                    <button key={f} onClick={() => setFilter(f)}
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors capitalize ${filter === f ? 'bg-violet-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                        {f}
-                    </button>
-                ))}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-1 overflow-x-auto pb-0.5">
+                    {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((f) => (
+                        <button key={f} onClick={() => setFilter(f)}
+                            className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors capitalize ${filter === f ? 'bg-violet-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                            {f}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative w-full sm:w-64">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Customer or Order ID..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="h-9 pl-9 text-xs"
+                    />
+                </div>
             </div>
 
             <Card className="shadow-sm overflow-hidden">
@@ -111,19 +170,20 @@ export const OrdersTab = () => {
                             {displayed.map((order) => {
                                 const StatusIcon = STATUS_ICONS[order.status] ?? Clock;
                                 return (
-                                    <li key={order._id} className="px-5 py-4 hover:bg-muted/20 transition-colors">
+                                    <li key={order.id} className="px-5 py-4 hover:bg-muted/20 transition-colors">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className="font-medium text-sm">{order.customerName || 'Guest'}</span>
+                                                    <span className="font-medium text-sm">{order.customer?.name || 'Guest'}</span>
                                                     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${STATUS_STYLES[order.status] ?? ''}`}>
                                                         <StatusIcon className="h-2.5 w-2.5" /> {order.status}
                                                     </span>
-                                                    <span className="text-xs font-semibold text-emerald-700">₹{order.amount.toLocaleString('en-IN')}</span>
+                                                    <span className="text-xs font-semibold text-emerald-700">₹{order.totalPrice.toLocaleString('en-IN')}</span>
+                                                    {order.isPaid && <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 uppercase">Paid</span>}
                                                 </div>
                                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                                    {order.customerEmail && <span className="mr-2">{order.customerEmail}</span>}
-                                                    {order.customerPhone && <span className="mr-2">{order.customerPhone}</span>}
+                                                    {order.customer?.email && <span className="mr-2">{order.customer.email}</span>}
+                                                    {order.customer?.phone && <span className="mr-2">{order.customer.phone}</span>}
                                                     <span className="font-mono text-[10px] text-muted-foreground/60">{order.razorpayOrderId}</span>
                                                 </p>
                                                 {order.items.length > 0 && (
@@ -138,16 +198,16 @@ export const OrdersTab = () => {
                                             {/* status updater */}
                                             <div className="shrink-0">
                                                 <select
-                                                    disabled={updating === order._id}
+                                                    disabled={updating === order.id}
                                                     value={order.status}
-                                                    onChange={(e) => updateStatus(order._id, e.target.value)}
+                                                    onChange={(e) => updateStatus(order.id, e.target.value)}
                                                     className="h-8 rounded-lg border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                                                 >
-                                                    <option value="created">Created</option>
-                                                    <option value="paid">Paid</option>
+                                                    <option value="pending">Pending</option>
+                                                    <option value="processing">Processing</option>
                                                     <option value="shipped">Shipped</option>
                                                     <option value="delivered">Delivered</option>
-                                                    <option value="failed">Failed</option>
+                                                    <option value="cancelled">Cancelled</option>
                                                 </select>
                                             </div>
                                         </div>

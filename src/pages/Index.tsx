@@ -7,6 +7,7 @@ import CustomerStats from '@/components/home/CustomerStats';
 import SeasonalCollection from '@/components/home/SeasonalCollection';
 import NewArrivalsSection from '@/components/home/NewArrivalsSection';
 import BestSellersSection from '@/components/home/BestSellersSection';
+import PromoBanner from '@/components/home/PromoBanner';
 
 const Index = () => {
   return (
@@ -21,6 +22,7 @@ const Index = () => {
       <NewArrivalsSection />
       <BestSellersSection />
       <FeaturedProducts />
+      <PromoBanner />
       <SeasonalCollection />
       <BrandStory />
       <CustomerStats />

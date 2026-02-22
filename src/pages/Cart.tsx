@@ -4,8 +4,10 @@ import { Trash2, Minus, Plus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { useConfig } from '@/contexts/ConfigContext';
 
 const Cart = () => {
+  const { config } = useConfig();
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
 
   if (items.length === 0) {
@@ -29,7 +31,7 @@ const Cart = () => {
     );
   }
 
-  const shipping = totalPrice > 0 ? 0 : 199;
+  const shipping = totalPrice >= (config.freeShippingThreshold || 999) ? 0 : 199;
   const total = totalPrice + shipping;
 
   return (
@@ -148,7 +150,7 @@ const Cart = () => {
               </div>
               {shipping > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Free shipping on orders over ₹2,000
+                  Free shipping on orders over ₹{(config.freeShippingThreshold || 999).toLocaleString()}
                 </p>
               )}
               <Separator />

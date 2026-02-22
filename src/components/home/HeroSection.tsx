@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, ChevronDown, Sparkles, Star, Heart, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroProduct from '@/assets/hero-product.png';
+import { useConfig } from '@/contexts/ConfigContext';
 
 const FloatingParticle = ({ delay, duration, x, y }: { delay: number; duration: number; x: string; y: string }) => (
   <motion.div
@@ -24,7 +25,7 @@ const FloatingParticle = ({ delay, duration, x, y }: { delay: number; duration: 
 );
 
 const AnimatedText = ({ children, delay }: { children: string; delay: number }) => {
-  const words = children.split(' ');
+  const words = (children || "").split(' ');
   return (
     <span className="inline-flex flex-wrap">
       {words.map((word, i) => (
@@ -47,6 +48,7 @@ const AnimatedText = ({ children, delay }: { children: string; delay: number }) 
 };
 
 const HeroSection = () => {
+  const { config } = useConfig();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -105,7 +107,7 @@ const HeroSection = () => {
       ))}
 
       {/* Grid Pattern Overlay */}
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.015]"
         style={{
           backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px),
@@ -131,24 +133,20 @@ const HeroSection = () => {
               >
                 <Sparkles className="h-4 w-4 text-primary" />
               </motion.span>
-              <span className="text-sm font-medium text-primary">New Collection 2025</span>
+              <span className="text-sm font-medium text-primary">{config.heroBadge}</span>
             </motion.div>
-            
+
             {/* Main Heading */}
             <h1 className="font-display text-4xl font-medium leading-[1.1] md:text-5xl lg:text-6xl xl:text-7xl">
-              <AnimatedText delay={0.2}>Elegance in</AnimatedText>
-              <br />
-              <span className="relative inline-block">
-                <AnimatedText delay={0.5}>Every Stitch</AnimatedText>
-                <motion.span
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ delay: 1.2, duration: 0.8, ease: 'easeOut' }}
-                  className="absolute -bottom-2 left-0 h-1 w-full origin-left rounded-full bg-gradient-to-r from-primary via-primary/80 to-transparent"
-                />
-              </span>
+              <AnimatedText delay={0.2}>{config.heroTitle}</AnimatedText>
+              <motion.span
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ delay: 1.2, duration: 0.8, ease: 'easeOut' }}
+                className="block h-1 w-24 origin-left rounded-full bg-gradient-to-r from-primary via-primary/80 to-transparent mt-4 mx-auto lg:mx-0"
+              />
             </h1>
-            
+
             {/* Description */}
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -156,8 +154,7 @@ const HeroSection = () => {
               transition={{ delay: 0.8, duration: 0.6 }}
               className="mx-auto mt-8 max-w-lg text-base text-muted-foreground md:text-lg lg:mx-0"
             >
-              Discover premium comfort wear that blends traditional craftsmanship 
-              with modern elegance. Experience luxury in its purest form.
+              {config.heroSubtitle}
             </motion.p>
 
             {/* CTA Buttons */}
@@ -187,10 +184,10 @@ const HeroSection = () => {
                   />
                 </Link>
               </Button>
-              <Button 
-                asChild 
-                variant="outline" 
-                size="lg" 
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
                 className="group border-2 border-foreground/20 px-8 py-6 text-base backdrop-blur-sm hover:border-foreground/40 hover:bg-foreground/5"
               >
                 <Link to="/about">
@@ -218,8 +215,8 @@ const HeroSection = () => {
                 { value: '500+', label: 'Products', icon: Star },
                 { value: '50+', label: 'Cities', icon: Truck },
               ].map((stat, index) => (
-                <motion.div 
-                  key={stat.label} 
+                <motion.div
+                  key={stat.label}
                   className="group text-center lg:text-left"
                   whileHover={{ y: -5 }}
                   transition={{ duration: 0.2 }}
@@ -242,15 +239,15 @@ const HeroSection = () => {
             className="relative hidden h-[550px] lg:block lg:h-[650px]"
           >
             {/* Decorative Rings */}
-            <motion.div 
+            <motion.div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
               animate={{ rotate: 360 }}
               transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
             >
               <div className="h-[500px] w-[500px] rounded-full border border-dashed border-primary/20" />
             </motion.div>
-            
-            <motion.div 
+
+            <motion.div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
               animate={{ rotate: -360 }}
               transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
@@ -258,7 +255,7 @@ const HeroSection = () => {
               <div className="h-[420px] w-[420px] rounded-full border border-primary/10" />
             </motion.div>
 
-            <motion.div 
+            <motion.div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
@@ -282,10 +279,10 @@ const HeroSection = () => {
                 <div className="absolute inset-0 scale-90 blur-3xl">
                   <div className="h-full w-full rounded-full bg-gradient-to-b from-primary/30 via-accent/20 to-transparent" />
                 </div>
-                
-                <img 
-                  src={heroProduct} 
-                  alt="Premium Lounge Wear" 
+
+                <img
+                  src={heroProduct}
+                  alt="Premium Lounge Wear"
                   className="relative z-10 h-[520px] w-auto object-contain drop-shadow-2xl"
                 />
 
@@ -322,7 +319,7 @@ const HeroSection = () => {
                 </div>
               </motion.div>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -384,13 +381,13 @@ const HeroSection = () => {
                   left: `${15 + i * 14}%`,
                   top: `${5 + (i % 3) * 30}%`,
                 }}
-                animate={{ 
+                animate={{
                   scale: [1, 1.8, 1],
                   opacity: [0.2, 0.8, 0.2],
                   rotate: [0, 180, 360],
                 }}
-                transition={{ 
-                  duration: 3 + i * 0.5, 
+                transition={{
+                  duration: 3 + i * 0.5,
                   repeat: Infinity,
                   delay: i * 0.4,
                 }}

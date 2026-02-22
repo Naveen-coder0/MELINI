@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import ScrollProgressBar from '@/components/ScrollProgressBar';
 import SizeGuideModal from '@/components/SizeGuideModal';
 import RecentlyViewed, { addRecentlyViewed } from '@/components/RecentlyViewed';
+import { useConfig } from '@/contexts/ConfigContext';
 
 const ProductDetails = () => {
   const { slug } = useParams();
@@ -24,6 +25,7 @@ const ProductDetails = () => {
   const { addItem } = useCart();
   const { toast } = useToast();
   const { toggleWishlist, isWishlisted } = useWishlist();
+  const { config } = useConfig();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
@@ -34,7 +36,7 @@ const ProductDetails = () => {
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   const wishlisted = product ? isWishlisted(product.id) : false;
-  const lowStock = (product as any)?.stockCount !== undefined && (product as any).stockCount < 5 && (product as any).stockCount > 0;
+  const lowStock = product.stockCount !== undefined && product.stockCount < 5 && product.stockCount > 0;
 
   // Determine active images based on selected color
   const activeImages = useMemo(() => {
@@ -376,7 +378,8 @@ const ProductDetails = () => {
                 size="lg"
                 onClick={() => {
                   const message = encodeURIComponent(`Hi MELINI, I'm interested in the ${product.name} in ${selectedColor.name} color and ${selectedSize} size. Can you help me with this?`);
-                  window.open(`https://wa.me/91XXXXXXXXXX?text=${message}`, '_blank');
+                  const whatsappNumber = config.whatsapp || '91XXXXXXXXXX';
+                  window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
                 }}
               >
                 <MessageCircle className="h-5 w-5 fill-white" />

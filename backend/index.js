@@ -70,6 +70,160 @@ const ProductSchema = new mongoose.Schema(
 
 const Product = mongoose.model("Product", ProductSchema);
 
+/* ---------------- ORDER SCHEMA ---------------- */
+
+const OrderSchema = new mongoose.Schema(
+  {
+    user: { type: String }, // Assuming user ID will be a string for now, or ObjectId if a User schema is added
+    orderItems: [
+      {
+        name: { type: String, required: true },
+        qty: { type: Number, required: true },
+        image: { type: String, required: true },
+        price: { type: Number, required: true },
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+          ref: "Product",
+        },
+        size: String,
+        color: { name: String, value: String },
+      },
+    ],
+    shippingAddress: {
+      address: { type: String, required: true },
+      city: { type: String, required: true },
+      postalCode: { type: String, required: true },
+      country: { type: String, required: true },
+    },
+    paymentMethod: { type: String, required: true },
+    paymentResult: {
+      id: { type: String },
+      status: { type: String },
+      update_time: { type: String },
+      email_address: { type: String },
+    },
+    customer: {
+      name: String,
+      email: String,
+      phone: String,
+    },
+    itemsPrice: { type: Number, required: true, default: 0.0 },
+    taxPrice: { type: Number, required: true, default: 0.0 },
+    shippingPrice: { type: Number, required: true, default: 0.0 },
+    totalPrice: { type: Number, required: true, default: 0.0 },
+    isPaid: { type: Boolean, required: true, default: false },
+    paidAt: { type: Date },
+    isDelivered: { type: Boolean, required: true, default: false },
+    deliveredAt: { type: Date },
+    status: {
+      type: String,
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      default: "pending",
+    },
+    coupon: { type: mongoose.Schema.Types.ObjectId, ref: "Coupon" },
+    discountAmount: { type: Number, default: 0.0 },
+    orderNotes: String,
+  },
+  { timestamps: true }
+);
+
+const Order = mongoose.model("Order", OrderSchema);
+
+/* ---------------- COUPON SCHEMA ---------------- */
+
+const CouponSchema = new mongoose.Schema(
+  {
+    code: { type: String, required: true, unique: true, uppercase: true },
+    discountType: {
+      type: String,
+      enum: ["percentage", "fixed"],
+      required: true,
+    },
+    discountValue: { type: Number, required: true },
+    minOrderAmount: { type: Number, default: 0 },
+    maxDiscountAmount: { type: Number },
+    usageLimit: { type: Number },
+    usedCount: { type: Number, default: 0 },
+    expiresAt: { type: Date },
+    isActive: { type: Boolean, default: true },
+  },
+  { timestamps: true }
+);
+
+const Coupon = mongoose.model("Coupon", CouponSchema);
+
+/* ---------------- REVIEW SCHEMA ---------------- */
+
+const ReviewSchema = new mongoose.Schema(
+  {
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: "Product",
+    },
+    user: { type: String, required: true }, // Assuming user ID will be a string for now
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    comment: { type: String, required: true },
+    images: [String],
+    isApproved: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
+const Review = mongoose.model("Review", ReviewSchema);
+
+/* ---------------- SITE CONFIG SCHEMA ---------------- */
+
+const SiteConfigSchema = new mongoose.Schema(
+  {
+    heroTitle: String,
+    heroSubtitle: String,
+    heroBadge: String,
+    announcement: String,
+    promoBannerUrl: String,
+    promoLink: String,
+    // Store Identity (from Settings)
+    storeName: { type: String, default: "MELINI" },
+    tagline: { type: String, default: "Timeless Indian Clothing" },
+    contactEmail: String,
+    whatsapp: String,
+    instagram: String,
+    announcementBar: String, // Redundant but keeping for compatibility, mapped to 'announcement'
+    freeShippingThreshold: { type: Number, default: 999 },
+    currency: { type: String, default: "INR" },
+    maintenanceMode: { type: Boolean, default: false },
+    announcements: [
+      {
+        message: String,
+        isActive: { type: Boolean, default: true },
+        startDate: Date,
+        endDate: Date,
+      },
+    ],
+    socialLinks: {
+      facebook: String,
+      instagram: String,
+      twitter: String,
+      pinterest: String,
+      youtube: String,
+    },
+    contactInfo: {
+      email: String,
+      phone: String,
+      address: String,
+    },
+    seoDefaults: {
+      metaTitle: String,
+      metaDescription: String,
+      keywords: [String],
+    },
+  },
+  { timestamps: true }
+);
+
+const SiteConfig = mongoose.model("SiteConfig", SiteConfigSchema);
+
 /* ---------------- SETTINGS SCHEMA ---------------- */
 
 const SettingsSchema = new mongoose.Schema({
@@ -198,14 +352,289 @@ router.delete("/admin/products/:id", verifyAdmin, async (req, res) => {
   }
 });
 
+/* ---------------- ORDERS ---------------- */
+
+router.get("/admin/orders", verifyAdmin, async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    res.json({ items: orders.map(toClient) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+router.get("/admin/orders/:id", verifyAdmin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(toClient(order));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch order" });
+  }
+});
+
+router.put("/admin/orders/:id", verifyAdmin, async (req, res) => {
+  try {
+    const { id, _id, ...body } = req.body;
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      body,
+      { new: true, runValidators: true }
+    );
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(toClient(order));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update order" });
+  }
+});
+
+router.patch("/admin/orders/:id", verifyAdmin, async (req, res) => {
+  try {
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(toClient(order));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update order status" });
+  }
+});
+
+router.delete("/admin/orders/:id", verifyAdmin, async (req, res) => {
+  try {
+    await Order.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete order" });
+  }
+});
+
+/* 🛒 Public Order Creation (After Payment) */
+router.post("/orders", async (req, res) => {
+  try {
+    const order = await Order.create(req.body);
+    res.status(201).json(toClient(order));
+  } catch (err) {
+    console.error("Order creation error:", err);
+    res.status(500).json({ error: "Failed to create order record" });
+  }
+});
+
+/* ---------------- COUPONS ---------------- */
+
+router.get("/admin/coupons", verifyAdmin, async (req, res) => {
+  try {
+    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    res.json({ items: coupons.map(toClient) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch coupons" });
+  }
+});
+
+router.post("/admin/coupons", verifyAdmin, async (req, res) => {
+  try {
+    const { id, _id, ...body } = req.body;
+    const coupon = await Coupon.create(body);
+    res.status(201).json(toClient(coupon));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create coupon" });
+  }
+});
+
+router.get("/admin/coupons/:id", verifyAdmin, async (req, res) => {
+  try {
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) return res.status(404).json({ error: "Coupon not found" });
+    res.json(toClient(coupon));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch coupon" });
+  }
+});
+
+router.put("/admin/coupons/:id", verifyAdmin, async (req, res) => {
+  try {
+    const { id, _id, ...body } = req.body;
+    const coupon = await Coupon.findByIdAndUpdate(
+      req.params.id,
+      body,
+      { new: true, runValidators: true }
+    );
+    if (!coupon) return res.status(404).json({ error: "Coupon not found" });
+    res.json(toClient(coupon));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update coupon" });
+  }
+});
+
+router.patch("/admin/coupons/:id", verifyAdmin, async (req, res) => {
+  try {
+    const coupon = await Coupon.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    if (!coupon) return res.status(404).json({ error: "Coupon not found" });
+    res.json(toClient(coupon));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update coupon" });
+  }
+});
+
+router.delete("/admin/coupons/:id", verifyAdmin, async (req, res) => {
+  try {
+    await Coupon.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete coupon" });
+  }
+});
+
+/* ---------------- REVIEWS ---------------- */
+
+router.get("/admin/reviews", verifyAdmin, async (req, res) => {
+  try {
+    const reviews = await Review.find().sort({ createdAt: -1 });
+    res.json({ items: reviews.map(toClient) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch reviews" });
+  }
+});
+
+router.get("/admin/reviews/:id", verifyAdmin, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id);
+    if (!review) return res.status(404).json({ error: "Review not found" });
+    res.json(toClient(review));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch review" });
+  }
+});
+
+router.put("/admin/reviews/:id", verifyAdmin, async (req, res) => {
+  try {
+    const { id, _id, ...body } = req.body;
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      body,
+      { new: true, runValidators: true }
+    );
+    if (!review) return res.status(404).json({ error: "Review not found" });
+    res.json(toClient(review));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update review" });
+  }
+});
+
+router.patch("/admin/reviews/:id", verifyAdmin, async (req, res) => {
+  try {
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    if (!review) return res.status(404).json({ error: "Review not found" });
+    res.json(toClient(review));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update review" });
+  }
+});
+
+router.delete("/admin/reviews/:id", verifyAdmin, async (req, res) => {
+  try {
+    await Review.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete review" });
+  }
+});
+
+/* ---------------- SITE CONFIGURATION ---------------- */
+
+router.get("/site-config", async (req, res) => {
+  try {
+    let siteConfig = await SiteConfig.findOne();
+    if (!siteConfig) {
+      siteConfig = await SiteConfig.create({}); // Create a default if none exists
+    }
+    res.json(toClient(siteConfig));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch site configuration" });
+  }
+});
+
+router.get("/admin/site-config", verifyAdmin, async (req, res) => {
+  try {
+    let siteConfig = await SiteConfig.findOne();
+    if (!siteConfig) {
+      siteConfig = await SiteConfig.create({}); // Create a default if none exists
+    }
+    res.json(toClient(siteConfig));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch site configuration" });
+  }
+});
+
+router.put("/admin/site-config", verifyAdmin, async (req, res) => {
+  try {
+    const { id, _id, ...body } = req.body;
+    let siteConfig = await SiteConfig.findOne();
+    if (!siteConfig) {
+      siteConfig = await SiteConfig.create(body);
+    } else {
+      siteConfig = await SiteConfig.findByIdAndUpdate(
+        siteConfig._id,
+        body,
+        { new: true, runValidators: true }
+      );
+    }
+    res.json(toClient(siteConfig));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update site configuration" });
+  }
+});
+
 /* ---------------- SETTINGS ---------------- */
+
+/* ---------------- SETTINGS (Unified with SiteConfig) ---------------- */
 
 router.get("/admin/settings", verifyAdmin, async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({});
+    let siteConfig = await SiteConfig.findOne();
+    if (!siteConfig) {
+      siteConfig = await SiteConfig.create({});
     }
+    // Map SiteConfig to the structure expected by SettingsTab
+    const settings = {
+      storeName: siteConfig.storeName,
+      tagline: siteConfig.tagline,
+      contactEmail: siteConfig.contactEmail,
+      whatsapp: siteConfig.whatsapp,
+      instagram: siteConfig.instagram,
+      announcementBar: siteConfig.announcement || siteConfig.announcementBar,
+      freeShippingThreshold: siteConfig.freeShippingThreshold,
+      currency: siteConfig.currency,
+    };
     res.json(settings);
   } catch (err) {
     console.error(err);
@@ -215,13 +644,18 @@ router.get("/admin/settings", verifyAdmin, async (req, res) => {
 
 router.put("/admin/settings", verifyAdmin, async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create(req.body);
-    } else {
-      settings = await Settings.findByIdAndUpdate(settings._id, req.body, { new: true });
+    let siteConfig = await SiteConfig.findOne();
+    const updateData = { ...req.body };
+    if (updateData.announcementBar) {
+      updateData.announcement = updateData.announcementBar;
     }
-    res.json(settings);
+
+    if (!siteConfig) {
+      siteConfig = await SiteConfig.create(updateData);
+    } else {
+      siteConfig = await SiteConfig.findByIdAndUpdate(siteConfig._id, updateData, { new: true });
+    }
+    res.json(siteConfig);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to update settings" });

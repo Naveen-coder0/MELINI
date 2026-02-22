@@ -7,6 +7,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { ProductProvider } from '@/contexts/ProductContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { WishlistProvider } from '@/contexts/WishlistContext';
+import { ConfigProvider } from '@/contexts/ConfigContext';
 import Layout from "@/components/layout/Layout";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
@@ -33,45 +34,44 @@ const App = () => (
         <ProductProvider>
           <CartProvider>
             <WishlistProvider>
-              <Toaster />
-              <Sonner />
+              <ConfigProvider>
+                <Toaster />
+                <Sonner />
 
-              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <ScrollToTop />
-                <BackToTop />
+                <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                  <ScrollToTop />
+                  <BackToTop />
 
-                <Routes>
-                  {/* Admin login — no layout (full-page auth form) */}
-                  <Route path="/admin-login" element={<AdminLogin />} />
+                  <Routes>
+                    {/* Admin login — no layout (full-page auth form) */}
+                    <Route path="/admin-login" element={<AdminLogin />} />
 
-                  {/* Protected admin panel — inside Layout so nav+footer are shown */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <Layout>
+                    {/* Protected admin panel — inside Layout so nav+footer are shown */}
+                    <Route
+                      path="/admin"
+                      element={
                         <ProtectedAdminRoute>
                           <Admin />
                         </ProtectedAdminRoute>
-                      </Layout>
-                    }
-                  />
+                      }
+                    />
 
-                  {/* Public routes with layout */}
-                  <Route element={<Layout><Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/shop" element={<Shop />} />
-                    <Route path="/product/:slug" element={<ProductDetails />} />
-                    <Route path="/category/:category" element={<Category />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/search" element={<Search />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes></Layout>} path="/*" />
-                </Routes>
-              </BrowserRouter>
-
+                    {/* Public routes with layout */}
+                    <Route element={<Layout><Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/shop" element={<Shop />} />
+                      <Route path="/product/:slug" element={<ProductDetails />} />
+                      <Route path="/category/:category" element={<Category />} />
+                      <Route path="/cart" element={<Cart />} />
+                      <Route path="/checkout" element={<Checkout />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/contact" element={<Contact />} />
+                      <Route path="/search" element={<Search />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes></Layout>} path="/*" />
+                  </Routes>
+                </BrowserRouter>
+              </ConfigProvider>
             </WishlistProvider>
           </CartProvider>
         </ProductProvider>

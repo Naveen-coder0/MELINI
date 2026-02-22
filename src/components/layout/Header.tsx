@@ -4,9 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ShoppingBag, Menu, X, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
+import { useConfig } from '@/contexts/ConfigContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import CartDrawer from '@/components/CartDrawer';
+import { Sparkles } from 'lucide-react';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -23,6 +25,7 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const location = useLocation();
+  const { config } = useConfig();
   const { totalItems } = useCart();
   const { count: wishlistCount } = useWishlist();
 
@@ -40,12 +43,22 @@ const Header = () => {
     <>
       <CartDrawer open={isCartOpen} onClose={() => setIsCartOpen(false)} />
 
+      {config.announcement && (
+        <div className="bg-primary py-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-primary-foreground md:text-xs">
+          <div className="container-custom flex items-center justify-center gap-2">
+            <Sparkles className="h-3 w-3" />
+            {config.announcement}
+            <Sparkles className="h-3 w-3" />
+          </div>
+        </div>
+      )}
+
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         className={cn(
-          'fixed left-0 right-0 top-0 z-50 transition-all duration-500',
-          isScrolled ? 'glass border-b py-3' : 'bg-transparent py-5'
+          'fixed left-0 right-0 z-50 transition-all duration-500',
+          config.announcement ? (isScrolled ? 'top-0 glass border-b py-3' : 'top-[36px] bg-transparent py-5') : (isScrolled ? 'top-0 glass border-b py-3' : 'top-0 bg-transparent py-5')
         )}
       >
         <div className="container-custom flex items-center justify-between">
@@ -64,7 +77,7 @@ const Header = () => {
               className="font-display text-2xl font-semibold tracking-wide md:text-3xl"
               whileHover={{ scale: 1.02 }}
             >
-              MELINI
+              {config.storeName || 'MELINI'}
             </motion.span>
           </Link>
 
@@ -146,7 +159,7 @@ const Header = () => {
               className="fixed inset-y-0 left-0 z-50 w-80 bg-background p-6 shadow-large lg:hidden"
             >
               <div className="flex items-center justify-between">
-                <span className="font-display text-2xl font-semibold">MELINI</span>
+                <span className="font-display text-2xl font-semibold">{config.storeName || 'MELINI'}</span>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
                   <X className="h-6 w-6" />
                 </button>

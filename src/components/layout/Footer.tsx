@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Instagram, Facebook, Twitter, Mail, MapPin, Phone } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useConfig } from '@/contexts/ConfigContext';
 
 const footerLinks = {
   shop: [
@@ -33,6 +34,7 @@ const socialLinks = [
 ];
 
 const Footer = () => {
+  const { config } = useConfig();
   return (
     <footer className="border-t bg-secondary/30">
       {/* Newsletter Section */}
@@ -45,7 +47,7 @@ const Footer = () => {
               viewport={{ once: true }}
               className="font-display text-3xl font-medium md:text-4xl"
             >
-              Join the Melini Family
+              Join the {config.storeName || 'Melini'} Family
             </motion.h3>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -83,11 +85,10 @@ const Footer = () => {
           {/* Brand Column */}
           <div className="lg:col-span-2">
             <Link to="/" className="font-display text-2xl font-semibold tracking-wide">
-              MELINI
+              {config.storeName || 'MELINI'}
             </Link>
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-              Crafting premium comfort wear that blends elegance with everyday luxury. 
-              Experience the art of conscious fashion.
+              {config.tagline || 'Crafting premium comfort wear that blends elegance with everyday luxury. Experience the art of conscious fashion.'}
             </p>
             <div className="mt-6 flex gap-4">
               {socialLinks.map((social) => (
@@ -161,21 +162,25 @@ const Footer = () => {
             <MapPin className="h-4 w-4" />
             <span>Mumbai, India</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            <span>+91 9988324455</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            <span>hello@melini.in</span>
-          </div>
+          {config.whatsapp && (
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              <span>{config.whatsapp}</span>
+            </div>
+          )}
+          {config.contactEmail && (
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              <span>{config.contactEmail}</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Bottom Bar */}
       <div className="border-t">
         <div className="container-custom flex flex-col items-center justify-between gap-4 py-6 text-sm text-muted-foreground md:flex-row">
-          <p>© 2025 Melini India. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {config.storeName || 'Melini India'}. All rights reserved.</p>
           <div className="flex gap-6">
             <Link to="#" className="hover:text-foreground">Privacy Policy</Link>
             <Link to="#" className="hover:text-foreground">Terms of Service</Link>

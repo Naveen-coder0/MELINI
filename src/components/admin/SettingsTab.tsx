@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle, AlertTriangle, Settings2, Save } from 'lucide-react';
+import { useConfig } from '@/contexts/ConfigContext';
 
 interface StoreSettings {
     storeName: string;
@@ -42,6 +43,8 @@ export const SettingsTab = () => {
             .finally(() => setIsLoading(false));
     }, []);
 
+    const { refreshConfig } = useConfig();
+
     const update = (field: keyof StoreSettings, value: string | number) =>
         setSettings((prev) => ({ ...prev, [field]: value }));
 
@@ -56,6 +59,7 @@ export const SettingsTab = () => {
             });
             if (!res.ok) throw new Error('Save failed');
             setSuccess(true);
+            await refreshConfig();
             setTimeout(() => setSuccess(false), 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Save failed');

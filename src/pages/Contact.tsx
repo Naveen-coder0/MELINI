@@ -6,46 +6,48 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-
-const contactInfo = [
-  {
-    icon: MapPin,
-    title: 'Visit Us',
-    details: ['123 Fashion Street', 'Bandra West, Mumbai', 'Maharashtra 400050'],
-  },
-  {
-    icon: Phone,
-    title: 'Call Us',
-    details: ['+91 9988324455', '+91 22 2640 1234'],
-  },
-  {
-    icon: Mail,
-    title: 'Email Us',
-    details: ['hello@melini.in', 'support@melini.in'],
-  },
-  {
-    icon: Clock,
-    title: 'Working Hours',
-    details: ['Monday - Saturday', '10:00 AM - 8:00 PM', 'Sunday: 11:00 AM - 6:00 PM'],
-  },
-];
+import { useConfig } from '@/contexts/ConfigContext';
 
 const Contact = () => {
+  const { config } = useConfig();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const contactInfo = [
+    {
+      icon: MapPin,
+      title: 'Visit Us',
+      details: ['123 Fashion Street', 'Bandra West, Mumbai', 'Maharashtra 400050'],
+    },
+    {
+      icon: Phone,
+      title: 'Call Us',
+      details: [config.whatsapp || '+91 9988324455'],
+    },
+    {
+      icon: Mail,
+      title: 'Email Us',
+      details: [config.contactEmail || 'hello@melini.in'],
+    },
+    {
+      icon: Clock,
+      title: 'Working Hours',
+      details: ['Monday - Saturday', '10:00 AM - 8:00 PM', 'Sunday: 11:00 AM - 6:00 PM'],
+    },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     // Simulate form submission
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     toast({
       title: 'Message sent!',
       description: 'We\'ll get back to you as soon as possible.',
     });
-    
+
     setIsSubmitting(false);
     (e.target as HTMLFormElement).reset();
   };

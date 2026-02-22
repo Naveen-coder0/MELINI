@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Heart, Leaf, Users, Award, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useConfig } from '@/contexts/ConfigContext';
 
 const values = [
   {
@@ -35,6 +36,7 @@ const timeline = [
 ];
 
 const About = () => {
+  const { config } = useConfig();
   return (
     <div className="pt-24">
       {/* Hero */}
@@ -57,8 +59,8 @@ const About = () => {
               Our Story
             </h1>
             <p className="mt-6 text-lg text-muted-foreground md:text-xl">
-              Born from a passion for comfort and a love for timeless style, 
-              Melini represents the perfect blend of traditional craftsmanship and modern elegance.
+              Born from a passion for comfort and a love for timeless style,
+              {config.storeName || 'Melini'} represents the perfect blend of traditional craftsmanship and modern elegance.
             </p>
           </motion.div>
         </div>
@@ -83,9 +85,9 @@ const About = () => {
               transition={{ delay: 0.1 }}
               className="mt-6 text-lg leading-relaxed text-muted-foreground"
             >
-              At Melini, we believe that true luxury lies in comfort. Our collections are designed 
-              for the modern individual who refuses to compromise between looking elegant and feeling 
-              at ease. Each garment tells a story of meticulous craftsmanship, sustainable practices, 
+              At {config.storeName || 'Melini'}, we believe that true luxury lies in comfort. Our collections are designed
+              for the modern individual who refuses to compromise between looking elegant and feeling
+              at ease. Each garment tells a story of meticulous craftsmanship, sustainable practices,
               and an unwavering commitment to quality.
             </motion.p>
           </div>
@@ -138,7 +140,7 @@ const About = () => {
           <div className="relative mt-16">
             {/* Timeline line */}
             <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-border" />
-            
+
             <div className="space-y-12">
               {timeline.map((item, index) => (
                 <motion.div
@@ -147,14 +149,12 @@ const About = () => {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 }}
-                  className={`relative flex items-center ${
-                    index % 2 === 0 ? 'justify-start' : 'justify-end'
-                  } md:justify-center`}
+                  className={`relative flex items-center ${index % 2 === 0 ? 'justify-start' : 'justify-end'
+                    } md:justify-center`}
                 >
                   <div
-                    className={`w-full max-w-sm ${
-                      index % 2 === 0 ? 'md:mr-auto md:pr-16 md:text-right' : 'md:ml-auto md:pl-16 md:text-left'
-                    }`}
+                    className={`w-full max-w-sm ${index % 2 === 0 ? 'md:mr-auto md:pr-16 md:text-right' : 'md:ml-auto md:pl-16 md:text-left'
+                      }`}
                   >
                     <span className="text-gradient font-display text-2xl font-semibold">
                       {item.year}
@@ -180,7 +180,7 @@ const About = () => {
             viewport={{ once: true }}
             className="font-display text-3xl font-medium md:text-4xl"
           >
-            Experience Melini
+            Experience {config.storeName || 'Melini'}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
