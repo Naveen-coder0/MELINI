@@ -48,7 +48,11 @@ const ProductSchema = new mongoose.Schema(
     images: [String],
     category: String,
     sizes: [String],
-    colors: [{ name: String, value: String }],
+    colors: [{
+      name: String,
+      value: String,
+      images: [String]
+    }],
     inStock: { type: Boolean, default: true },
     isBestSeller: Boolean,
     isNewProduct: Boolean,

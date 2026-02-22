@@ -35,6 +35,19 @@ const ProductDetails = () => {
   const wishlisted = product ? isWishlisted(product.id) : false;
   const lowStock = (product as any)?.stockCount !== undefined && (product as any).stockCount < 5 && (product as any).stockCount > 0;
 
+  // Determine active images based on selected color
+  const activeImages = useMemo(() => {
+    if (selectedColor && selectedColor.images && selectedColor.images.length > 0) {
+      return selectedColor.images;
+    }
+    return product.images;
+  }, [selectedColor, product.images]);
+
+  // Reset image index when color (and thus images) changes
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [activeImages]);
+
   useEffect(() => {
     if (product) addRecentlyViewed(product.id);
   }, [product?.id]);
@@ -71,7 +84,7 @@ const ProductDetails = () => {
       id: product.id,
       name: product.name,
       price: currentPrice,
-      image: product.images[0],
+      image: activeImages[0] || product.images[0],
       size: selectedSize,
       color: selectedColor.name,
       slug: product.slug,
@@ -156,7 +169,7 @@ const ProductDetails = () => {
               <AnimatePresence mode="wait">
                 <motion.img
                   key={selectedImage}
-                  src={product.images[selectedImage]}
+                  src={activeImages[selectedImage]}
                   alt={product.name}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -197,7 +210,7 @@ const ProductDetails = () => {
 
             {/* Thumbnails */}
             <div className="flex gap-3">
-              {product.images.map((image, index) => (
+              {activeImages.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}

@@ -17,7 +17,7 @@ export interface Product {
   category: 'summer' | 'semi-winter' | 'winter';
   images: string[];
   sizes: string[];
-  colors: { name: string; value: string }[];
+  colors: { name: string; value: string; images?: string[] }[];
   inStock: boolean;
   isNewProduct?: boolean;
   isBestSeller?: boolean;

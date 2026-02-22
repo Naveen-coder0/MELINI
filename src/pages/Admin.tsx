@@ -42,7 +42,7 @@ const FILTER_TABS = [
 const emptyProduct: Product = {
   id: '', name: '', slug: '', price: 0, description: '', shortDescription: '',
   category: 'summer', images: [], sizes: ['S', 'M', 'L'],
-  colors: [{ name: 'Black', value: '#111111' }], inStock: true, material: '',
+  colors: [{ name: 'Black', value: '#111111', images: [] }], inStock: true, material: '',
   careInstructions: ['Machine wash cold'], features: ['Comfort fit'],
   metaTitle: '', metaDescription: '', tags: [],
   articleNo: '',
@@ -202,7 +202,7 @@ const Admin = () => {
   const resetForm = () => { setForm(emptyProduct); setEditingId(null); setCustomSize(''); };
   const toggleSize = (size: string) => updateForm('sizes', form.sizes.includes(size) ? form.sizes.filter((s) => s !== size) : [...form.sizes, size]);
   const addCustomSize = () => { const s = customSize.trim().toUpperCase(); if (s && !form.sizes.includes(s)) updateForm('sizes', [...form.sizes, s]); setCustomSize(''); };
-  const addColor = () => { const name = newColorName.trim() || newColorValue; if (!form.colors.some((c) => c.value === newColorValue)) updateForm('colors', [...form.colors, { name, value: newColorValue }]); setNewColorName(''); setNewColorValue('#000000'); };
+  const addColor = () => { const name = newColorName.trim() || newColorValue; if (!form.colors.some((c) => c.value === newColorValue)) updateForm('colors', [...form.colors, { name, value: newColorValue, images: [] }]); setNewColorName(''); setNewColorValue('#000000'); };
   const addTag = () => { const t = newTag.trim().toLowerCase(); if (t && !(form.tags ?? []).includes(t)) updateForm('tags', [...(form.tags ?? []), t]); setNewTag(''); };
 
   /* quick stock toggle */
@@ -212,56 +212,59 @@ const Admin = () => {
     catch { setRequestError('Failed to update stock'); }
   };
 
-  /* image upload */
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files?.length) return;
+  /* image upload helper */
+  const handleUpload = async (files: FileList | null): Promise<string[]> => {
+    if (!files?.length) return [];
     setIsUploading(true); setRequestError(null);
     try {
-      console.log("Starting upload to:", `${import.meta.env.VITE_API_URL || ""}/api/upload`);
       const headers = authHeaders();
-      console.log("Auth headers present:", !!headers.Authorization);
-
       const urls = await Promise.all(Array.from(files).map((file) =>
         new Promise<string>(async (resolve, reject) => {
           try {
             const formData = new FormData();
             formData.append('file', file);
-
             const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/upload`, {
               method: 'POST',
-              headers: {
-                ...headers,
-              },
+              headers: { ...headers },
               body: formData,
             });
-
-            if (res.status === 401) {
-              console.warn("Session expired during upload. Logging out.");
-              handleLogout();
-              throw new Error("Session expired. Please log in again.");
-            }
-
+            if (res.status === 401) { handleLogout(); throw new Error("Session expired. Please log in again."); }
             const json = await res.json();
-            if (!res.ok) {
-              console.error("Upload response error:", json);
-              throw new Error(json.error || json.details || 'Upload failed');
-            }
+            if (!res.ok) throw new Error(json.error || json.details || 'Upload failed');
             resolve(json.url);
-          } catch (err) {
-            console.error("Individual file upload error:", err);
-            reject(err);
-          }
+          } catch (err) { reject(err); }
         })
       ));
-      setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
-      showSuccess(`Uploaded ${urls.length} images`);
-    } catch (err) {
-      console.error("Batch upload error:", err);
-      setRequestError(err instanceof Error ? err.message : 'Image upload failed.');
+      return urls;
+    } catch (err: any) {
+      setRequestError(err.message || 'Upload failed');
+      return [];
     } finally {
       setIsUploading(false);
-      if (event.target) event.target.value = '';
+    }
+  };
+
+  /* global image upload */
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const urls = await handleUpload(event.target.files);
+    if (urls.length > 0) {
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
+      showSuccess(`Uploaded ${urls.length} images`);
+    }
+    event.target.value = '';
+  };
+
+  /* color-specific image upload */
+  const handleColorImageUpload = async (colorIdx: number, files: FileList | null) => {
+    const urls = await handleUpload(files);
+    if (urls.length > 0) {
+      const updatedColors = [...form.colors];
+      updatedColors[colorIdx] = {
+        ...updatedColors[colorIdx],
+        images: [...(updatedColors[colorIdx].images || []), ...urls]
+      };
+      updateForm('colors', updatedColors);
+      showSuccess(`Uploaded ${urls.length} images for color`);
     }
   };
 
@@ -747,9 +750,63 @@ const Admin = () => {
                         </p>
                       </div>
 
-                      <div><SL>Colors</SL>
-                        <div className="flex gap-2 mb-2"><input type="color" value={newColorValue} onChange={(e) => setNewColorValue(e.target.value)} className="h-9 w-10 cursor-pointer rounded border border-border bg-transparent p-0.5" /><Input value={newColorName} onChange={(e) => setNewColorName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addColor(); } }} placeholder="Color name" className="h-9 text-sm" /><Button type="button" variant="outline" size="sm" onClick={addColor} className="h-9 shrink-0"><Plus className="h-3.5 w-3.5" /></Button></div>
-                        {form.colors.length > 0 && <div className="flex flex-wrap gap-2">{form.colors.map((color, i) => (<div key={i} className="flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1"><span className="h-4 w-4 rounded-full border shadow-sm" style={{ backgroundColor: color.value }} /><span className="text-xs font-medium">{color.name}</span><button type="button" onClick={() => updateForm('colors', form.colors.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive transition-colors"><X className="h-3 w-3" /></button></div>))}</div>}
+                      <div><SL>Colors &amp; Color-Specific Images</SL>
+                        <div className="flex gap-2 mb-4">
+                          <input type="color" value={newColorValue} onChange={(e) => setNewColorValue(e.target.value)} className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-1" />
+                          <Input value={newColorName} onChange={(e) => setNewColorName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addColor(); } }} placeholder="Color name (e.g. Royal Blue)" className="h-10 text-sm" />
+                          <Button type="button" variant="outline" onClick={addColor} className="h-10 shrink-0"><Plus className="h-4 w-4" /></Button>
+                        </div>
+
+                        {form.colors.length > 0 && (
+                          <div className="space-y-4">
+                            {form.colors.map((color, i) => (
+                              <div key={i} className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                                <div className="flex items-center justify-between bg-muted/30 px-4 py-2 border-b">
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full border shadow-sm" style={{ backgroundColor: color.value }} />
+                                    <span className="text-xs font-bold uppercase tracking-widest text-violet-700">{color.name}</span>
+                                  </div>
+                                  <button type="button" onClick={() => updateForm('colors', form.colors.filter((_, idx) => idx !== i))} className="rounded-full p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors"><X className="h-3.5 w-3.5" /></button>
+                                </div>
+                                <div className="p-4">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <label className={`flex h-9 min-w-[120px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-violet-200 bg-violet-50/50 px-3 text-[10px] font-bold uppercase tracking-wider text-violet-600 transition-colors hover:bg-violet-100 ${isUploading ? 'pointer-events-none opacity-60' : ''}`}>
+                                      {isUploading ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" /> : <Upload className="h-3 w-3" />}
+                                      Upload Images
+                                      <input type="file" accept="image/*" multiple onChange={(e) => handleColorImageUpload(i, e.target.files)} className="hidden" disabled={isUploading} />
+                                    </label>
+                                    <p className="text-[10px] text-muted-foreground italic truncate">Images specific to this color only.</p>
+                                  </div>
+
+                                  {(color.images ?? []).length > 0 ? (
+                                    <div className="grid grid-cols-5 gap-2">
+                                      {(color.images ?? []).map((img, imgIdx) => (
+                                        <div key={imgIdx} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
+                                          <img src={img} alt="" className="h-full w-full object-cover" />
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const updatedColors = [...form.colors];
+                                              updatedColors[i].images = (updatedColors[i].images ?? []).filter((_, idx) => idx !== imgIdx);
+                                              updateForm('colors', updatedColors);
+                                            }}
+                                            className="absolute right-0.5 top-0.5 rounded bg-black/60 p-0.5 text-white opacity-0 transition group-hover:opacity-100"
+                                          >
+                                            <X className="h-2.5 w-2.5" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-lg border border-dashed py-3 text-center text-[10px] text-muted-foreground">
+                                      No images for this color.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div><SL>Care Instructions</SL><StringListEditor items={form.careInstructions} onChange={(v) => updateForm('careInstructions', v)} placeholder="e.g. Machine wash cold" /></div>
