@@ -66,6 +66,21 @@ const ProductSchema = new mongoose.Schema(
 
 const Product = mongoose.model("Product", ProductSchema);
 
+/* ---------------- SETTINGS SCHEMA ---------------- */
+
+const SettingsSchema = new mongoose.Schema({
+  storeName: { type: String, default: "MELINI" },
+  tagline: { type: String, default: "Timeless Indian Clothing" },
+  contactEmail: String,
+  whatsapp: String,
+  instagram: String,
+  announcementBar: { type: String, default: "Free shipping on orders above ₹999" },
+  freeShippingThreshold: { type: Number, default: 999 },
+  currency: { type: String, default: "INR" },
+}, { timestamps: true });
+
+const Settings = mongoose.model("Settings", SettingsSchema);
+
 /* ---------------- AUTH ---------------- */
 
 const verifyAdmin = (req, res, next) => {
@@ -179,6 +194,36 @@ router.delete("/admin/products/:id", verifyAdmin, async (req, res) => {
   }
 });
 
+/* ---------------- SETTINGS ---------------- */
+
+router.get("/admin/settings", verifyAdmin, async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+    res.json(settings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+router.put("/admin/settings", verifyAdmin, async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = await Settings.create(req.body);
+    } else {
+      settings = await Settings.findByIdAndUpdate(settings._id, req.body, { new: true });
+    }
+    res.json(settings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update settings" });
+  }
+});
+
 /* ---------------- CREATE ORDER ---------------- */
 
 router.post("/create-order", async (req, res) => {
@@ -232,6 +277,26 @@ router.post("/upload", verifyAdmin, async (req, res) => {
       error: "Upload failed",
       details: err.message
     });
+  }
+});
+
+router.delete("/upload", verifyAdmin, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: "URL required" });
+
+    // Extract public_id from Cloudinary URL
+    const parts = url.split("/");
+    const filename = parts[parts.length - 1].split(".")[0];
+    const folder = parts[parts.length - 2];
+    const publicId = `${folder}/${filename}`;
+
+    console.log("Attempting Cloudinary delete for:", publicId);
+    const result = await cloudinary.uploader.destroy(publicId);
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error("Cloudinary Delete Error:", err);
+    res.status(500).json({ error: "Delete failed" });
   }
 });
 
