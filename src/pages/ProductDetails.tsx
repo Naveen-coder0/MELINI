@@ -37,11 +37,18 @@ const ProductDetails = () => {
 
   // Determine active images based on selected color
   const activeImages = useMemo(() => {
-    if (selectedColor && selectedColor.images && selectedColor.images.length > 0) {
+    // 1. Try images for selected color
+    if (selectedColor?.images && selectedColor.images.length > 0) {
       return selectedColor.images;
     }
-    return product.images;
-  }, [selectedColor, product.images]);
+    // 2. Fallback to images from the first color that has them
+    const colorWithImages = product.colors.find(c => c.images && c.images.length > 0);
+    if (colorWithImages?.images) {
+      return colorWithImages.images;
+    }
+    // 3. Last resort fallback
+    return product.images.length > 0 ? product.images : [];
+  }, [selectedColor, product.colors, product.images]);
 
   // Reset image index when color (and thus images) changes
   useEffect(() => {

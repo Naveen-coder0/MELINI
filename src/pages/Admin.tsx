@@ -586,24 +586,7 @@ const Admin = () => {
 
                       {/* Removed global Pricing section */}
 
-                      <div><SL>Images</SL>
-                        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary ${isUploading ? 'pointer-events-none opacity-60' : ''}`}>
-                          {isUploading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />Uploading…</> : <><Upload className="h-4 w-4" />Click to upload</>}
-                          <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" disabled={isUploading} />
-                        </label>
-                        {form.images.length > 0 && (
-                          <div className="mt-3 grid grid-cols-4 gap-2">
-                            {form.images.map((image, index) => (
-                              <div key={`${image}-${index}`} className="group relative aspect-square overflow-hidden rounded-lg border bg-muted" draggable onDragStart={() => setDragIndex(index)} onDragOver={(e) => e.preventDefault()} onDrop={() => handleImageDrop(index)}>
-                                <img src={image} alt="" className="h-full w-full object-cover" />
-                                <button type="button" onClick={() => handleImageRemove(image, index)} className="absolute left-0.5 top-0.5 rounded bg-black/60 p-0.5 text-white opacity-0 transition group-hover:opacity-100"><X className="h-3 w-3" /></button>
-                                <span className="absolute right-0.5 top-0.5 rounded bg-black/50 p-0.5 opacity-0 transition group-hover:opacity-100"><GripVertical className="h-3 w-3 text-white" /></span>
-                                {index === 0 && <span className="absolute bottom-0 left-0 right-0 bg-black/50 py-0.5 text-center text-[9px] font-semibold text-white">MAIN</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      {/* Global Images section removed - using Color-Specific images instead */}
 
                       {/* Article Number */}
                       <div>
