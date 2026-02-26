@@ -77,7 +77,7 @@ const Lightbox = ({ images, startIndex, onClose }: { images: string[]; startInde
 
 /* ════ constants ════ */
 
-const PRESET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const PRESET_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '5XL'];
 const CATEGORY_COLORS: Record<string, string> = {
     summer: 'bg-amber-100 text-amber-800 border-amber-200',
     'semi-winter': 'bg-blue-100 text-blue-800 border-blue-200',

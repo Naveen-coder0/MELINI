@@ -26,7 +26,7 @@ const Checkout = () => {
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const shipping = totalPrice > 0 ? 0 : 199;
+  const shipping = totalPrice >= (config.freeShippingThreshold || 999) ? 0 : 199;
   const total = totalPrice + shipping;
 
   // ✅ WhatsApp message

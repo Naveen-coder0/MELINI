@@ -754,11 +754,17 @@ async function connectDB() {
   console.log("DB connected");
 }
 
-app.listen(PORT, async () => {
-  console.log(`Backend running on port ${PORT}`);
-  try {
-    await connectDB();
-  } catch (err) {
-    console.error("DB connection failed:", err.message);
-  }
-});
+// Only start the HTTP server in local / non-serverless environments
+if (!process.env.VERCEL) {
+  app.listen(PORT, async () => {
+    console.log(`Backend running on port ${PORT}`);
+    try {
+      await connectDB();
+    } catch (err) {
+      console.error("DB connection failed:", err.message);
+    }
+  });
+}
+
+export { connectDB };
+export default app;

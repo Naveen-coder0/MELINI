@@ -36,10 +36,11 @@ const ProductDetails = () => {
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   const wishlisted = product ? isWishlisted(product.id) : false;
-  const lowStock = product.stockCount !== undefined && product.stockCount < 5 && product.stockCount > 0;
+  const lowStock = product?.stockCount !== undefined && (product.stockCount ?? 0) < 5 && (product.stockCount ?? 0) > 0;
 
   // Determine active images based on selected color
   const activeImages = useMemo(() => {
+    if (!product) return [];
     // 1. Try images for selected color
     if (selectedColor?.images && selectedColor.images.length > 0) {
       return selectedColor.images;
@@ -51,7 +52,7 @@ const ProductDetails = () => {
     }
     // 3. Last resort fallback
     return product.images.length > 0 ? product.images : [];
-  }, [selectedColor, product.colors, product.images]);
+  }, [selectedColor, product?.colors, product?.images, product]);
 
   const [imageLoaded, setImageLoaded] = useState(false);
 
