@@ -5,14 +5,34 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { categories } from '@/data/products';
+import { useProducts } from '@/contexts/ProductContext';
 
 interface ProductFiltersProps {
   onClose?: () => void;
 }
 
-const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-
+// Sizes are now derived from products managed via admin interface
 const ProductFilters = ({ onClose }: ProductFiltersProps) => {
+  const { products } = useProducts();
+
+  // Build a unique ordered list of sizes from products
+  const defaultOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL'];
+  const availableSizes = Array.from(
+    products.reduce((set, p) => {
+      (p.sizes || []).forEach((s) => set.add(s));
+      return set;
+    }, new Set<string>())
+  );
+
+  // Order sizes according to defaultOrder, falling back to alphabetical
+  const sizes = availableSizes.sort((a, b) => {
+    const ia = defaultOrder.indexOf(a as string);
+    const ib = defaultOrder.indexOf(b as string);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
   const [searchParams, setSearchParams] = useSearchParams();
 
   const selectedCategory = searchParams.get('category') || 'all';
