@@ -100,7 +100,22 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
     },
     getProductBySlug: (slug) => products.find((product) => product.slug === slug),
     getProductsByCategory: (category) => products.filter((product) => product.category === category),
-    getFeaturedProducts: () => products.filter((product) => product.isBestSeller || product.isNewProduct).slice(0, 8),
+    getFeaturedProducts: () => {
+      // Prefer explicit `createdAt` timestamp from backend when available
+      const withTimestamps = products.filter((p: any) => p && (p.createdAt || p.created_at || p.updatedAt || p.updated_at));
+      if (withTimestamps.length > 0) {
+        return [...products]
+          .sort((a: any, b: any) => {
+            const ta = (a.createdAt ?? a.created_at ?? a.updatedAt ?? a.updated_at) || 0;
+            const tb = (b.createdAt ?? b.created_at ?? b.updatedAt ?? b.updated_at) || 0;
+            return +new Date(tb) - +new Date(ta);
+          })
+          .slice(0, 10);
+      }
+
+      // Fallback: use array order (newest items are kept at the front by addProduct)
+      return products.slice(0, 10);
+    },
   }), [error, isLoading, products]);
 
   return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>;

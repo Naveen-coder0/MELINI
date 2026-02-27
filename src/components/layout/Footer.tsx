@@ -160,7 +160,7 @@ const Footer = () => {
         <div className="mt-12 flex flex-wrap gap-6 border-t pt-8 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
-            <span>Mumbai, India</span>
+            <span>Saharanpur, India</span>
           </div>
           {config.whatsapp && (
             <div className="flex items-center gap-2">
