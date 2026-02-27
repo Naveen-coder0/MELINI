@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Tag, Percent, Calendar, CheckCircle, XCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Trash2, Tag, Percent, CheckCircle, XCircle } from 'lucide-react';
 
 interface Coupon {
     id: string;
@@ -23,6 +24,8 @@ export const MarketingTab = () => {
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [formError, setFormError] = useState('');
+    const { toast } = useToast();
 
     // Form state
     const [newCoupon, setNewCoupon] = useState<Partial<Coupon>>({
@@ -41,9 +44,15 @@ export const MarketingTab = () => {
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons`, { headers: authHeaders() });
             const data = await res.json();
-            setCoupons(data.items || []);
+            if (res.ok) {
+                setCoupons(data.items || []);
+            } else {
+                console.error("Fetch coupons failed:", data?.error || res.status);
+                toast({ title: 'Failed to load coupons', description: data?.error || `Status ${res.status}`, variant: 'destructive' });
+            }
         } catch (err) {
             console.error("Coupon fetch error:", err);
+            toast({ title: 'Network error', description: 'Could not load coupons', variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
@@ -52,18 +61,28 @@ export const MarketingTab = () => {
     const handleCreateCoupon = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
+        setFormError('');
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(newCoupon),
             });
+            const data = await res.json();
             if (res.ok) {
                 fetchCoupons();
                 setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, isActive: true, usedCount: 0 });
+                toast({ title: 'Coupon created!', description: `${data.code} is now active.` });
+            } else {
+                const msg = data?.error || data?.message || 'Failed to create coupon';
+                setFormError(msg);
+                toast({ title: 'Error', description: msg, variant: 'destructive' });
             }
         } catch (err) {
-            console.error("Coupon create error:", err);
+            console.error('Coupon create error:', err);
+            const msg = 'Network error – could not reach server';
+            setFormError(msg);
+            toast({ title: 'Error', description: msg, variant: 'destructive' });
         } finally {
             setIsSaving(false);
         }
@@ -168,6 +187,11 @@ export const MarketingTab = () => {
                     </CardHeader>
                     <CardContent className="pt-6">
                         <form onSubmit={handleCreateCoupon} className="space-y-4">
+                            {formError && (
+                                <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
+                                    {formError}
+                                </div>
+                            )}
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold uppercase tracking-tight text-muted-foreground">Coupon Code</Label>
                                 <Input
