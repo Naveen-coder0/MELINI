@@ -69,6 +69,23 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Listen for changes to products in other tabs (admin saves) and sync
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        try {
+          const parsed = e.newValue ? (JSON.parse(e.newValue) as Product[]) : [];
+          setProductsRaw(parsed);
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const value = useMemo<ProductContextValue>(() => ({
     products,
     isLoading,
