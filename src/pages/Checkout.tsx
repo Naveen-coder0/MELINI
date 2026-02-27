@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, CreditCard, CheckCircle } from 'lucide-react';
+import { ChevronLeft, CreditCard, CheckCircle, Tag, X } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,8 +26,52 @@ const Checkout = () => {
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    couponId: string;
+    discountAmount: number;
+    discountType: string;
+    discountValue: number;
+  } | null>(null);
+
   const shipping = totalPrice >= (config.freeShippingThreshold || 999) ? 0 : 199;
-  const total = totalPrice + shipping;
+  const discountAmount = appliedCoupon?.discountAmount ?? 0;
+  const total = totalPrice + shipping - discountAmount;
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setIsValidatingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), orderAmount: totalPrice + shipping }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCouponError(data.error || 'Invalid coupon');
+        setAppliedCoupon(null);
+      } else {
+        setAppliedCoupon(data);
+        setCouponInput('');
+        toast({ title: 'Coupon applied! 🎉', description: `You saved ₹${data.discountAmount.toLocaleString('en-IN')}` });
+      }
+    } catch {
+      setCouponError('Failed to validate coupon. Please try again.');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError('');
+  };
 
   // ✅ WhatsApp message
   const sendOrderToWhatsapp = (paymentId: string) => {
@@ -62,6 +106,9 @@ ${productsText}
 Address:
 ${address}, ${city}, ${state} - ${pincode}
 
+Subtotal: ₹${totalPrice}${appliedCoupon ? `
+Coupon (${appliedCoupon.code}): -₹${discountAmount}` : ''}
+Shipping: ${shipping === 0 ? 'Free' : `₹${shipping}`}
 Total: ₹${total}
 
 Payment ID:
@@ -89,7 +136,7 @@ ${paymentId}
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total })
+          body: JSON.stringify({ amount: Math.max(total, 1) })
         });
 
       const order = await res.json();
@@ -148,6 +195,8 @@ ${paymentId}
               },
               itemsPrice: totalPrice,
               shippingPrice: shipping,
+              discountAmount: discountAmount,
+              coupon: appliedCoupon?.couponId ?? undefined,
               totalPrice: total,
               isPaid: true,
               paidAt: new Date(),
@@ -408,6 +457,51 @@ ${paymentId}
 
               <Separator />
 
+              {/* Coupon Section */}
+              <div className="space-y-2">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-emerald-600" />
+                      <span className="text-sm font-mono font-bold text-emerald-700 tracking-wider">{appliedCoupon.code}</span>
+                      <span className="text-xs text-emerald-600">applied</span>
+                    </div>
+                    <button onClick={handleRemoveCoupon} className="ml-2 text-muted-foreground hover:text-destructive transition-colors">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Coupon code"
+                          value={couponInput}
+                          onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                          onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                          className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm font-mono tracking-wider placeholder:normal-case placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleApplyCoupon}
+                        disabled={isValidatingCoupon || !couponInput.trim()}
+                        className="shrink-0 h-9"
+                      >
+                        {isValidatingCoupon ? 'Checking...' : 'Apply'}
+                      </Button>
+                    </div>
+                    {couponError && <p className="text-xs text-destructive">{couponError}</p>}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
@@ -417,6 +511,12 @@ ${paymentId}
                   <span className="text-muted-foreground">Shipping</span>
                   <span>{shipping === 0 ? 'Free' : `₹${shipping}`}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sm text-emerald-600">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-₹{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 <Separator />
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total</span>

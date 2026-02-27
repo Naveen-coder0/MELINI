@@ -11,10 +11,11 @@ interface Coupon {
     code: string;
     discountType: 'percentage' | 'fixed';
     discountValue: number;
-    minPurchaseAmount?: number;
-    expiryDate?: string;
+    minOrderAmount?: number;
+    maxDiscountAmount?: number;
+    expiresAt?: string;
     usageLimit?: number;
-    usageCount: number;
+    usedCount: number;
     isActive: boolean;
 }
 
@@ -29,7 +30,7 @@ export const MarketingTab = () => {
         discountType: 'percentage',
         discountValue: 0,
         isActive: true,
-        usageCount: 0
+        usedCount: 0
     });
 
     useEffect(() => {
@@ -59,7 +60,7 @@ export const MarketingTab = () => {
             });
             if (res.ok) {
                 fetchCoupons();
-                setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, isActive: true, usageCount: 0 });
+                setNewCoupon({ code: '', discountType: 'percentage', discountValue: 0, isActive: true, usedCount: 0 });
             }
         } catch (err) {
             console.error("Coupon create error:", err);
@@ -129,13 +130,14 @@ export const MarketingTab = () => {
                                                     </div>
                                                     <p className="text-xs text-muted-foreground">
                                                         {c.discountValue}{c.discountType === 'percentage' ? '%' : ' OFF'}
-                                                        {c.minPurchaseAmount ? ` • Min ₹${c.minPurchaseAmount}` : ''}
+                                                        {c.minOrderAmount ? ` • Min ₹${c.minOrderAmount}` : ''}
+                                                        {c.expiresAt ? ` • Exp ${new Date(c.expiresAt).toLocaleDateString('en-IN')}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-right hidden sm:block">
-                                                    <p className="text-xs font-bold">{c.usageCount} / {c.usageLimit || '∞'}</p>
+                                                    <p className="text-xs font-bold">{c.usedCount} / {c.usageLimit || '∞'}</p>
                                                     <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Usages</p>
                                                 </div>
                                                 <button
@@ -200,14 +202,24 @@ export const MarketingTab = () => {
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-bold uppercase tracking-tight text-muted-foreground">Min. Purchase Amount (₹)</Label>
+                                <Label className="text-xs font-bold uppercase tracking-tight text-muted-foreground">Min. Order Amount (₹)</Label>
                                 <Input
                                     type="number"
                                     placeholder="0"
-                                    value={newCoupon.minPurchaseAmount || ''}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, minPurchaseAmount: Number(e.target.value) })}
+                                    value={newCoupon.minOrderAmount || ''}
+                                    onChange={(e) => setNewCoupon({ ...newCoupon, minOrderAmount: Number(e.target.value) })}
                                 />
                                 <p className="text-[10px] text-muted-foreground italic">Optional: Leave 0 for no limit</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold uppercase tracking-tight text-muted-foreground">Max Discount Cap (₹)</Label>
+                                <Input
+                                    type="number"
+                                    placeholder="e.g. 500"
+                                    value={newCoupon.maxDiscountAmount || ''}
+                                    onChange={(e) => setNewCoupon({ ...newCoupon, maxDiscountAmount: Number(e.target.value) })}
+                                />
+                                <p className="text-[10px] text-muted-foreground italic">Optional: Max discount for % type coupons</p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-bold uppercase tracking-tight text-muted-foreground">Usage Limit</Label>
@@ -223,8 +235,8 @@ export const MarketingTab = () => {
                                 <Label className="text-xs font-bold uppercase tracking-tight text-muted-foreground">Expiry Date</Label>
                                 <Input
                                     type="date"
-                                    value={newCoupon.expiryDate || ''}
-                                    onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
+                                    value={newCoupon.expiresAt ? newCoupon.expiresAt.slice(0, 10) : ''}
+                                    onChange={(e) => setNewCoupon({ ...newCoupon, expiresAt: e.target.value })}
                                 />
                             </div>
                             <Button type="submit" className="w-full mt-4" disabled={isSaving}>

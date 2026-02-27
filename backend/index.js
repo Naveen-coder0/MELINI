@@ -420,6 +420,10 @@ router.delete("/admin/orders/:id", verifyAdmin, async (req, res) => {
 router.post("/orders", async (req, res) => {
   try {
     const order = await Order.create(req.body);
+    // Increment coupon usedCount if a coupon was applied
+    if (req.body.coupon) {
+      await Coupon.findByIdAndUpdate(req.body.coupon, { $inc: { usedCount: 1 } });
+    }
     res.status(201).json(toClient(order));
   } catch (err) {
     console.error("Order creation error:", err);
@@ -499,6 +503,51 @@ router.delete("/admin/coupons/:id", verifyAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to delete coupon" });
+  }
+});
+
+/* ---------------- COUPON VALIDATE (public) ---------------- */
+
+router.post("/coupons/validate", async (req, res) => {
+  const { code, orderAmount } = req.body;
+  if (!code) return res.status(400).json({ error: "Coupon code is required" });
+
+  try {
+    const coupon = await Coupon.findOne({ code: code.toUpperCase().trim() });
+
+    if (!coupon)
+      return res.status(404).json({ error: "Invalid coupon code" });
+    if (!coupon.isActive)
+      return res.status(400).json({ error: "This coupon is no longer active" });
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date())
+      return res.status(400).json({ error: "This coupon has expired" });
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit)
+      return res.status(400).json({ error: "This coupon has reached its usage limit" });
+    if (coupon.minOrderAmount && orderAmount < coupon.minOrderAmount)
+      return res.status(400).json({
+        error: `Minimum order amount of ₹${coupon.minOrderAmount} required for this coupon`,
+      });
+
+    let discountAmount = 0;
+    if (coupon.discountType === "percentage") {
+      discountAmount = Math.round((orderAmount * coupon.discountValue) / 100);
+      if (coupon.maxDiscountAmount)
+        discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
+    } else {
+      discountAmount = Math.min(coupon.discountValue, orderAmount);
+    }
+
+    res.json({
+      valid: true,
+      discountAmount,
+      couponId: coupon._id.toString(),
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to validate coupon" });
   }
 });
 
