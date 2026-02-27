@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { authHeaders } from '@/lib/auth';
+import { adminFetch } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, Package, ShoppingBag, XCircle, Clock, Search, Truck, Ban } from 'lucide-react';
@@ -78,7 +78,7 @@ export const OrdersTab = () => {
 
     useEffect(() => {
         const url = `${import.meta.env.VITE_API_URL || ""}/api/admin/orders`;
-        fetch(url, { headers: authHeaders() })
+        adminFetch(url)
             .then((r) => r.json())
             .then((data) => setOrders(data.items || []))
             .catch((err) => console.error("Order fetch error:", err))
@@ -88,9 +88,8 @@ export const OrdersTab = () => {
     const updateStatus = async (id: string, status: string) => {
         setUpdating(id);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/orders/${id}`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/orders/${id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ status }),
             });
             if (res.ok) {

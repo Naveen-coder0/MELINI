@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Product } from '@/data/products';
 import { useProducts } from '@/contexts/ProductContext';
-import { authHeaders } from '@/lib/auth';
+import { authHeaders, clearToken } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -174,6 +174,7 @@ export const ProductsTab = () => {
                     headers: { ...headers },
                     body: formData,
                 });
+                if (res.status === 401) { clearToken(); window.location.href = '/admin/login'; throw new Error('Session expired'); }
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error || 'Upload failed');
                 return json.url;

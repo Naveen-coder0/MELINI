@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authHeaders } from '@/lib/auth';
+import { adminFetch } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +42,7 @@ export const MarketingTab = () => {
 
     const fetchCoupons = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons`, { headers: authHeaders() });
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons`);
             const data = await res.json();
             if (res.ok) {
                 setCoupons(data.items || []);
@@ -63,9 +63,8 @@ export const MarketingTab = () => {
         setIsSaving(true);
         setFormError('');
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(newCoupon),
             });
             const data = await res.json();
@@ -91,9 +90,8 @@ export const MarketingTab = () => {
     const handleDeleteCoupon = async (id: string) => {
         if (!confirm('Are you sure you want to delete this coupon?')) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons/${id}`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons/${id}`, {
                 method: 'DELETE',
-                headers: authHeaders(),
             });
             if (res.ok) fetchCoupons();
         } catch (err) {
@@ -103,9 +101,8 @@ export const MarketingTab = () => {
 
     const toggleCouponStatus = async (coupon: Coupon) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons/${coupon.id}`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/coupons/${coupon.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ isActive: !coupon.isActive }),
             });
             if (res.ok) fetchCoupons();

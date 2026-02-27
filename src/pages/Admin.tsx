@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useProducts } from '@/contexts/ProductContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { authHeaders } from '@/lib/auth';
+import { adminFetch } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SettingsTab } from '@/components/admin/SettingsTab';
@@ -53,7 +53,7 @@ const Admin = () => {
 
   useEffect(() => {
     if (tab === 'dashboard' || tab === 'orders') {
-      fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/orders`, { headers: authHeaders() })
+      adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/orders`)
         .then(r => r.json())
         .then(data => setOrders(data.items || []))
         .catch(err => console.error("Admin order fetch error:", err));

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authHeaders } from '@/lib/auth';
+import { adminFetch } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,9 +53,8 @@ export const ContentTab = () => {
         setIsSaving(true);
         setError(null);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/site-config`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/site-config`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(config),
             });
             if (res.ok) {

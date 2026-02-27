@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authHeaders } from '@/lib/auth';
+import { adminFetch } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Star, MessageSquare, CheckCircle, XCircle, Trash2, User, Package } from 'lucide-react';
@@ -28,7 +28,7 @@ export const ReviewsTab = () => {
 
     const fetchReviews = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/reviews`, { headers: authHeaders() });
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/reviews`);
             const data = await res.json();
             setReviews(data.items || []);
         } catch (err) {
@@ -40,9 +40,8 @@ export const ReviewsTab = () => {
 
     const handleApproveReview = async (id: string, isApproved: boolean) => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/reviews/${id}`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/reviews/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ isApproved }),
             });
             if (res.ok) fetchReviews();
@@ -54,9 +53,8 @@ export const ReviewsTab = () => {
     const handleDeleteReview = async (id: string) => {
         if (!confirm('Are you sure you want to delete this review?')) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/reviews/${id}`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/reviews/${id}`, {
                 method: 'DELETE',
-                headers: authHeaders(),
             });
             if (res.ok) fetchReviews();
         } catch (err) {

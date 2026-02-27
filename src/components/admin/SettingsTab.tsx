@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { authHeaders } from '@/lib/auth';
+import { adminFetch } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +36,7 @@ export const SettingsTab = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/settings`, { headers: authHeaders() })
+        adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/settings`)
             .then((r) => r.json())
             .then((data) => setSettings({ ...defaultSettings, ...data }))
             .catch(() => { })
@@ -52,9 +52,8 @@ export const SettingsTab = () => {
         e.preventDefault();
         setIsSaving(true); setError(null);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/settings`, {
+            const res = await adminFetch(`${import.meta.env.VITE_API_URL || ""}/api/admin/settings`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify(settings),
             });
             if (!res.ok) throw new Error('Save failed');
