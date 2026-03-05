@@ -133,7 +133,7 @@ export const SettingsTab = () => {
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <Label className="mb-1.5 block text-xs">WhatsApp Number</Label>
-                            <Input value={settings.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="+91 9876543210" />
+                            <Input value={settings.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="+91 9870758284" />
                         </div>
                         <div>
                             <Label className="mb-1.5 block text-xs">Instagram Handle</Label>

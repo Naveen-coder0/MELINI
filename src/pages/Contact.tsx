@@ -22,7 +22,7 @@ const Contact = () => {
     {
       icon: Phone,
       title: 'Call Us',
-      details: [config.whatsapp || '+91 9988324455'],
+      details: [config.whatsapp || '+91 9870758284'],
     },
     {
       icon: Mail,

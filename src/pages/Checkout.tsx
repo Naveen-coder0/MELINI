@@ -115,7 +115,7 @@ Payment ID:
 ${paymentId}
 `;
 
-    const shopWhatsappNumber = config.whatsapp || '919467269782';
+    const shopWhatsappNumber = config.whatsapp || '919870758284';
 
     const url =
       'https://wa.me/' +

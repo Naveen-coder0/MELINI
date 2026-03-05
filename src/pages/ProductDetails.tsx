@@ -379,7 +379,7 @@ const ProductDetails = () => {
                 size="lg"
                 onClick={() => {
                   const message = encodeURIComponent(`Hi MELINI, I'm interested in the ${product.name} in ${selectedColor.name} color and ${selectedSize} size. Can you help me with this?`);
-                  const whatsappNumber = config.whatsapp || '91XXXXXXXXXX';
+                  const whatsappNumber = config.whatsapp || '919870758284';
                   window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
                 }}
               >
